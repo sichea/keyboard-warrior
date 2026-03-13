@@ -3,103 +3,13 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Plan9 Text Battle MVP</title>
-  <meta
-    name="description"
-    content="Plan9 스타일 텍스트 배틀 게임의 웹 MVP입니다."
-  />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link
-    href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;700&family=Space+Grotesk:wght@500;700&display=swap"
-    rel="stylesheet"
-  />
-  <link rel="stylesheet" href="./styles.css" />
+  <title>텍스트 배틀로 이동 중</title>
+  <meta http-equiv="refresh" content="0; url=./home.html" />
+  <script>
+    window.location.replace("./home.html");
+  </script>
 </head>
-<body data-page="home">
-  <div class="page-shell">
-    <div id="siteHeader"></div>
-
-    <header class="hero card">
-      <div class="hero__content">
-        <p class="eyebrow">TEXT BATTLE MVP</p>
-        <h1>Plan9 스타일의 텍스트 전투를 웹에서 바로 시작합니다.</h1>
-        <p class="hero__description">
-          캐릭터를 만들고, 랭킹을 보고, 랜덤 배틀을 실행해 최근 전투 기록을 확인할 수 있는
-          정적 웹앱 MVP입니다.
-        </p>
-        <nav class="hero__actions" aria-label="주요 메뉴">
-          <a class="button" href="./create.html">캐릭터 만들기</a>
-          <a class="button button--ghost" href="./me.html">내 캐릭터 관리</a>
-          <a class="button button--secondary" href="./rank.html">랭킹 보기</a>
-          <a class="button button--ghost" href="./battles.html">배틀 기록 보기</a>
-          <button id="runBattleButton" class="button button--danger" type="button">
-            랜덤 배틀 실행
-          </button>
-        </nav>
-      </div>
-      <aside class="hero__panel">
-        <div class="stat-box">
-          <span class="stat-box__label">최근 배틀</span>
-          <strong id="battleCountValue">-</strong>
-        </div>
-        <div class="stat-box">
-          <span class="stat-box__label">등록 캐릭터</span>
-          <strong id="characterCountValue">-</strong>
-        </div>
-        <div class="stat-box">
-          <span class="stat-box__label">상태</span>
-          <strong id="homeStatusValue">준비됨</strong>
-        </div>
-      </aside>
-    </header>
-
-    <main class="main-grid">
-      <section class="card content-card">
-        <div class="section-header">
-          <div>
-            <p class="section-header__eyebrow">GAME INTRO</p>
-            <h2>게임 소개</h2>
-          </div>
-        </div>
-        <div class="intro-grid">
-          <article class="mini-card">
-            <h3>캐릭터 중심 배틀</h3>
-            <p>텔레그램 사용자 기준으로 캐릭터를 만들고, 캐릭터 설정과 스킬을 관리합니다.</p>
-          </article>
-          <article class="mini-card">
-            <h3>AI 전투 해설 준비</h3>
-            <p>캐릭터 설정과 스킬을 바탕으로 왜 이겼는지 설명하는 전투 엔진 구조를 사용합니다.</p>
-          </article>
-          <article class="mini-card">
-            <h3>Supabase 연동</h3>
-            <p>사용자, 캐릭터, 배틀 기록을 Supabase에 저장하고 이후 텔레그램과 쉽게 연결합니다.</p>
-          </article>
-        </div>
-      </section>
-
-      <section class="card content-card">
-        <div class="section-header">
-          <div>
-            <p class="section-header__eyebrow">LATEST BATTLES</p>
-            <h2>최근 배틀 5개</h2>
-          </div>
-          <a class="text-link" href="./battles.html">전체 보기</a>
-        </div>
-        <div id="recentBattlesLoading" class="status-banner status-banner--info">
-          최근 배틀을 불러오는 중입니다.
-        </div>
-        <div id="recentBattlesMessage"></div>
-        <div id="recentBattlesList" class="stack-list" aria-live="polite"></div>
-      </section>
-    </main>
-  </div>
-
-  <div id="globalError" class="global-error" hidden></div>
-
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script defer src="./supabase.js"></script>
-  <script defer src="./app.js"></script>
-  <script defer src="./battle-engine.js"></script>
+<body>
+  <p><a href="./home.html">텍스트 배틀 홈으로 이동</a></p>
 </body>
 </html>
