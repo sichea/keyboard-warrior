@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>배틀 기록 | Plan9 Text Battle MVP</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;700&family=Space+Grotesk:wght@500;700&display=swap"
+    rel="stylesheet"
+  />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body data-page="battles">
+  <div class="page-shell">
+    <div id="siteHeader"></div>
+
+    <header class="page-title">
+      <p class="eyebrow">BATTLE LOG</p>
+      <h1>배틀 기록</h1>
+      <p>가장 최근 전투부터 차례대로 확인할 수 있으며, 긴 스토리는 펼쳐서 읽을 수 있습니다.</p>
+    </header>
+
+    <main class="page-card card">
+      <div class="page-header">
+        <div>
+          <p class="section-header__eyebrow">HISTORY</p>
+          <h2>전체 배틀 기록</h2>
+        </div>
+      </div>
+
+      <div id="battlesMessage"></div>
+      <div id="battlesLoading" class="status-banner status-banner--info">
+        배틀 기록을 불러오는 중입니다.
+      </div>
+      <section id="battleList" class="stack-list" aria-live="polite"></section>
+    </main>
+  </div>
+
+  <div id="globalError" class="global-error" hidden></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script defer src="./supabase.js"></script>
+  <script defer src="./app.js"></script>
+  <script defer src="./battle-engine.js"></script>
+  <script defer src="./battles.js"></script>
+</body>
+</html>

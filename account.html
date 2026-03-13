@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>텍스트 배틀 - 계정</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body data-page="account">
+  <div class="app-shell">
+    <header id="appHeader" class="app-header"></header>
+
+    <main class="content-stack">
+      <section class="card" aria-labelledby="accountTitle">
+        <div class="card-header">
+          <div>
+            <h2 id="accountTitle" class="card-title">계정</h2>
+            <p class="card-subtitle">연동 정보와 앱 환경을 설정하세요.</p>
+          </div>
+        </div>
+
+        <div class="content-stack">
+          <div id="accountStatus"></div>
+
+          <div class="warning-banner">
+            익명 계정은 기기를 변경하거나 브라우저 데이터를 삭제하면 접근할 수 없게 됩니다.
+          </div>
+
+          <button id="googleConnectButton" class="secondary-button" type="button">G 구글 계정 연결</button>
+
+          <div>
+            <label class="field-label" for="accountEmail">이메일</label>
+            <input id="accountEmail" class="input" type="email" placeholder="battle@example.com" />
+          </div>
+
+          <div>
+            <label class="field-label" for="accountPassword">비밀번호</label>
+            <input id="accountPassword" class="input" type="password" placeholder="비밀번호를 입력하세요" />
+          </div>
+
+          <button id="registerAccountButton" class="primary-button" type="button">계정 등록하기</button>
+
+          <div>
+            <label class="field-label">UI 언어 선택</label>
+            <div class="segment-group">
+              <button class="segment-button is-active" type="button" data-ui-language="ko">한국어</button>
+              <button class="segment-button" type="button" data-ui-language="en">English</button>
+              <button class="segment-button" type="button" data-ui-language="ja">日本語</button>
+            </div>
+          </div>
+
+          <div>
+            <label class="field-label" for="battleLanguage">배틀 언어 선택</label>
+            <select id="battleLanguage" class="select">
+              <option selected>한국어</option>
+              <option>English</option>
+              <option>日本語</option>
+            </select>
+            <p class="muted-text">배틀 스토리와 결과 메시지의 기본 언어를 설정합니다.</p>
+          </div>
+
+          <div>
+            <label class="field-label">테마 선택</label>
+            <div class="segment-group">
+              <button class="segment-button" type="button" data-theme-option="dark">다크</button>
+              <button class="segment-button is-active" type="button" data-theme-option="purple">퍼플</button>
+            </div>
+          </div>
+
+          <button id="logoutButton" class="logout-button" type="button">↩ 로그아웃</button>
+
+          <div style="text-align: center;">
+            <button id="deleteAccountButton" class="danger-text-button" type="button">계정 삭제</button>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <nav id="bottomNav" class="bottom-nav" aria-label="하단 네비게이션">
+    <div class="bottom-nav__list">
+      <a class="bottom-nav__item" data-page="home" href="./home.html">
+        <span class="bottom-nav__icon" aria-hidden="true">🏠</span>
+        <span>홈</span>
+      </a>
+      <a class="bottom-nav__item" data-page="ranking" href="./ranking.html">
+        <span class="bottom-nav__icon" aria-hidden="true">🏆</span>
+        <span>랭킹</span>
+      </a>
+      <a class="bottom-nav__item" data-page="mock-battle" href="./mock-battle.html">
+        <span class="bottom-nav__icon" aria-hidden="true">⚔️</span>
+        <span>모의 배틀</span>
+      </a>
+      <a class="bottom-nav__item" data-page="code-battle" href="./code-battle.html">
+        <span class="bottom-nav__icon" aria-hidden="true">💻</span>
+        <span>코드 배틀</span>
+      </a>
+      <a class="bottom-nav__item is-active" data-page="account" href="./account.html">
+        <span class="bottom-nav__icon" aria-hidden="true">👤</span>
+        <span>계정</span>
+      </a>
+    </div>
+  </nav>
+
+  <script defer src="./app.js"></script>
+</body>
+</html>

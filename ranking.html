@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>텍스트 배틀 - 랭킹</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body data-page="ranking">
+  <div class="app-shell">
+    <header id="appHeader" class="app-header"></header>
+
+    <main class="content-stack">
+      <section id="dailyChampionCard" class="card" aria-label="일간 1위 카드"></section>
+
+      <section class="card" aria-labelledby="rankingTitle">
+        <div class="card-header">
+          <div>
+            <h2 id="rankingTitle" class="card-title">랭킹</h2>
+            <p class="card-subtitle">오늘 가장 높은 Elo를 기록한 캐릭터들</p>
+          </div>
+          <button class="mini-button mini-button--yellow" type="button">일간 ▾</button>
+        </div>
+
+        <div id="rankingList" class="list-stack"></div>
+      </section>
+    </main>
+  </div>
+
+  <nav id="bottomNav" class="bottom-nav" aria-label="하단 네비게이션">
+    <div class="bottom-nav__list">
+      <a class="bottom-nav__item" data-page="home" href="./home.html">
+        <span class="bottom-nav__icon" aria-hidden="true">🏠</span>
+        <span>홈</span>
+      </a>
+      <a class="bottom-nav__item is-active" data-page="ranking" href="./ranking.html">
+        <span class="bottom-nav__icon" aria-hidden="true">🏆</span>
+        <span>랭킹</span>
+      </a>
+      <a class="bottom-nav__item" data-page="mock-battle" href="./mock-battle.html">
+        <span class="bottom-nav__icon" aria-hidden="true">⚔️</span>
+        <span>모의 배틀</span>
+      </a>
+      <a class="bottom-nav__item" data-page="code-battle" href="./code-battle.html">
+        <span class="bottom-nav__icon" aria-hidden="true">💻</span>
+        <span>코드 배틀</span>
+      </a>
+      <a class="bottom-nav__item" data-page="account" href="./account.html">
+        <span class="bottom-nav__icon" aria-hidden="true">👤</span>
+        <span>계정</span>
+      </a>
+    </div>
+  </nav>
+
+  <script defer src="./app.js"></script>
+</body>
+</html>

@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>내 캐릭터 | Plan9 Text Battle MVP</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;700&family=Space+Grotesk:wght@500;700&display=swap"
+    rel="stylesheet"
+  />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body data-page="me">
+  <div class="page-shell">
+    <div id="siteHeader"></div>
+
+    <header class="page-title">
+      <p class="eyebrow">MY CHARACTERS</p>
+      <h1>내 캐릭터 관리</h1>
+      <p>로그인한 사용자 기준으로 캐릭터를 확인하고, 설정과 스킬을 수정하거나 삭제할 수 있습니다.</p>
+    </header>
+
+    <main class="page-card card">
+      <div id="myCharactersMessage"></div>
+      <div id="myCharactersSummary"></div>
+      <section id="myCharactersList" class="character-grid" aria-live="polite"></section>
+    </main>
+  </div>
+
+  <div id="globalError" class="global-error" hidden></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script defer src="./supabase.js"></script>
+  <script defer src="./app.js"></script>
+  <script defer src="./me.js"></script>
+</body>
+</html>
