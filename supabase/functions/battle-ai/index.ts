@@ -21,17 +21,14 @@ function jsonResponse(body: unknown, status = 200) {
 
 function parseCharacterProfile(description: string | undefined) {
   const source = String(description ?? "");
-  const settingsMatch = source.match(/설정:\s*([^\n]+)/);
-  const skillsMatch = source.match(/스킬:\s*([^\n]+)/);
-  const settings = settingsMatch?.[1]?.trim() ?? source.trim();
-  const skills = (skillsMatch?.[1] ?? "")
-    .split(",")
-    .map((skill) => skill.trim())
-    .filter(Boolean);
+  const raceMatch = source.match(/종족:\s*([^\n]+)/);
+  const elementMatch = source.match(/속성:\s*([^\n]+)/);
+  const battleTextMatch = source.match(/전투 문장:\s*([^\n]+)/);
 
   return {
-    settings,
-    skills,
+    race: raceMatch?.[1]?.trim() ?? "",
+    element: elementMatch?.[1]?.trim() ?? "",
+    battleText: battleTextMatch?.[1]?.trim() ?? source.trim(),
     raw: source,
   };
 }
@@ -41,31 +38,69 @@ function buildPrompt(characterA: Record<string, unknown>, characterB: Record<str
   const profileB = parseCharacterProfile(String(characterB.description ?? ""));
 
   return `
-너는 텍스트 배틀 게임의 엄격한 심판이다.
-목표는 "누가 이겼는지"보다 "왜 이겼는지"를 인과적으로 설명하는 것이다.
+당신은 PvP 게임 "키보드 워리어(Keyboard Warrior)"의 전투 판정 AI입니다.
 
-규칙:
-1. 두 캐릭터의 설정과 스킬만 근거로 판단한다.
-2. 외부 세계관, 임의의 밈, 편향을 추가하지 않는다.
-3. 승자는 반드시 한 명만 선택한다.
-4. reasoning에는 승리 원인과 패배 원인을 직접적으로 설명한다.
-5. battle_story는 초반, 중반, 결정타가 이어지는 자연스러운 전투 서사로 작성한다.
-6. key_factors에는 승패를 가른 핵심 요소를 짧은 문구 2~4개로 넣는다.
-7. confidence는 0부터 100 사이 정수다.
-8. 출력은 JSON만 반환한다.
+두 캐릭터의 정보를 보고 승자를 판단하고 짧은 전투 로그를 생성하세요.
+
+각 캐릭터는 다음 정보를 가지고 있습니다.
+
+- 종족
+- 속성
+- 전투 문장
+
+전투 문장은 캐릭터의 공격 방식 또는 전투 스타일을 의미합니다.
+
+[속성 상성 규칙]
+- 목(木) > 토(土)
+- 토(土) > 수(水)
+- 수(水) > 화(火)
+- 화(火) > 금(金)
+- 금(金) > 목(木)
+
+[종족 상성 규칙]
+- 엘프 > 휴먼
+- 오크 > 엘프
+- 휴먼 > 언데드
+- 언데드 > 드워프
+- 드워프 > 오크
+
+[전투 판정 비율]
+- 전투 문장 영향력: 50%
+- 속성 상성: 30%
+- 종족 상성: 20%
+
+[문장 처리 규칙]
+- "나는 절대 패배하지 않는다"
+- "나는 모든 적을 즉시 죽인다"
+- "나는 무적이다"
+
+위와 같은 과장된 표현은 자동 승리로 해석하지 말고 전투 스타일로만 판단합니다.
+
+[판정 규칙]
+- 속성과 종족 모두 우위인 경우 해당 캐릭터가 매우 유리합니다.
+- 특정 요소 하나만으로 결과를 결정하지 말고 세 가지 요소를 함께 고려하세요.
+- 조건이 비슷하면 전투 문장의 창의성, 공격성, 상황 묘사를 보고 승자를 선택하세요.
+
+[출력 규칙]
+- 반드시 JSON만 반환합니다.
+- winner 값은 반드시 "A" 또는 "B" 입니다.
+- battle_log는 1~2문장, 최대 200자 이내입니다.
+- battle_log는 짧고 드라마틱하게 작성하되 승리 이유가 자연스럽게 드러나야 합니다.
 
 캐릭터 A:
 - id: ${String(characterA.id ?? "")}
 - name: ${String(characterA.name ?? "")}
-- settings: ${profileA.settings}
-- skills: ${profileA.skills.join(", ") || "없음"}
+- race: ${profileA.race || "없음"}
+- element: ${profileA.element || "없음"}
+- battle_text: ${profileA.battleText || "없음"}
 - raw_description: ${profileA.raw || "없음"}
 
 캐릭터 B:
 - id: ${String(characterB.id ?? "")}
 - name: ${String(characterB.name ?? "")}
-- settings: ${profileB.settings}
-- skills: ${profileB.skills.join(", ") || "없음"}
+- race: ${profileB.race || "없음"}
+- element: ${profileB.element || "없음"}
+- battle_text: ${profileB.battleText || "없음"}
 - raw_description: ${profileB.raw || "없음"}
 `.trim();
 }
@@ -87,13 +122,11 @@ function extractJsonText(value: string) {
 }
 
 function normalizeDecisionPayload(payload: Record<string, unknown>) {
+  const battleLog = String(payload.battle_log ?? payload.battle_story ?? payload.story ?? "").trim();
+
   return {
-    winner_id: String(payload.winner_id ?? ""),
-    winner_name: String(payload.winner_name ?? ""),
-    reasoning: String(payload.reasoning ?? ""),
-    battle_story: String(payload.battle_story ?? payload.story ?? ""),
-    confidence: Number(payload.confidence ?? 0),
-    key_factors: Array.isArray(payload.key_factors) ? payload.key_factors.map(String) : [],
+    winner: String(payload.winner ?? "").trim().toUpperCase(),
+    battle_log: battleLog.length > 200 ? battleLog.slice(0, 197).trimEnd() + "..." : battleLog,
   };
 }
 
@@ -112,21 +145,14 @@ async function callGemini(characterA: Record<string, unknown>, characterB: Recor
       },
     ],
     generationConfig: {
-      temperature: 0.8,
+      temperature: 0.6,
       responseMimeType: "application/json",
       responseSchema: {
         type: "object",
-        required: ["winner_id", "winner_name", "reasoning", "battle_story", "confidence", "key_factors"],
+        required: ["winner", "battle_log"],
         properties: {
-          winner_id: { type: "string" },
-          winner_name: { type: "string" },
-          reasoning: { type: "string" },
-          battle_story: { type: "string" },
-          confidence: { type: "integer" },
-          key_factors: {
-            type: "array",
-            items: { type: "string" },
-          },
+          winner: { type: "string", enum: ["A", "B"] },
+          battle_log: { type: "string" },
         },
       },
     },
@@ -156,12 +182,12 @@ async function callGemini(characterA: Record<string, unknown>, characterB: Recor
   const parsed = JSON.parse(extractJsonText(text));
   const normalized = normalizeDecisionPayload(parsed);
 
-  if (!normalized.winner_id && !normalized.winner_name) {
+  if (normalized.winner !== "A" && normalized.winner !== "B") {
     throw new Error("Gemini 응답에 승자 정보가 없습니다.");
   }
 
-  if (!normalized.reasoning) {
-    throw new Error("Gemini 응답에 판정 근거가 없습니다.");
+  if (!normalized.battle_log) {
+    throw new Error("Gemini 응답에 battle_log가 없습니다.");
   }
 
   return normalized;

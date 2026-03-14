@@ -359,26 +359,6 @@
       return null;
     }
 
-    if (result.winner_id) {
-      if (String(result.winner_id) === String(characterA.id)) {
-        return characterA;
-      }
-
-      if (String(result.winner_id) === String(characterB.id)) {
-        return characterB;
-      }
-    }
-
-    if (result.winner_name) {
-      if (String(result.winner_name) === String(characterA.name)) {
-        return characterA;
-      }
-
-      if (String(result.winner_name) === String(characterB.name)) {
-        return characterB;
-      }
-    }
-
     if (result.winner) {
       if (String(result.winner).toUpperCase() === "A") {
         return characterA;
@@ -422,7 +402,7 @@
     return {
       winner: winner,
       loser: winner.id === characterA.id ? characterB : characterA,
-      battleLog: String(result.battle_log || result.battle_story || result.story || result.reasoning || "").trim(),
+      battleLog: String(result.battle_log || "").trim().slice(0, 200),
       source: "ai"
     };
   }
