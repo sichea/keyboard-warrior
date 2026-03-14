@@ -1,3 +1,5 @@
 .vscode/
 .idx/
 firebase-debug.log
+supabase/.env.local
+supabase/.temp/
