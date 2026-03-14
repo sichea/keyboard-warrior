@@ -1,126 +1,40 @@
 (function () {
   "use strict";
 
-  var STORAGE_KEY = "text-battle-mobile-mvp";
-  var NAV_ITEMS = [
-    { key: "home", label: "홈", href: "./home.html", icon: "🏠" },
-    { key: "ranking", label: "랭킹", href: "./ranking.html", icon: "🏆" },
-    { key: "mock-battle", label: "모의 배틀", href: "./mock-battle.html", icon: "⚔️" },
-    { key: "code-battle", label: "코드 배틀", href: "./code-battle.html", icon: "💻" },
-    { key: "account", label: "계정", href: "./account.html", icon: "👤" }
+  var APP_STATE_KEY = "keyboard-warrior-static-state";
+  var SESSION_KEY = "keyboard-warrior-session";
+  var STATE_VERSION = 2;
+  var MAX_CHARACTERS = 5;
+  var BATTLE_TEXT_LIMIT = 100;
+  var GUILD_WIN_SCORE = 10;
+  var RACES = ["휴먼", "엘프", "오크", "언데드", "드워프"];
+  var ELEMENTS = ["불", "물", "풀", "땅", "전기"];
+  var PERSONAL_RANKING = "personal";
+  var GUILD_RANKING = "guild";
+  var TABS = [
+    { key: "home", label: "홈", icon: "🏠" },
+    { key: "ranking", label: "랭킹", icon: "🏆" },
+    { key: "arena", label: "대항전", icon: "⚔️" },
+    { key: "guild", label: "길드", icon: "🛡️" },
+    { key: "profile", label: "프로필", icon: "👤" }
   ];
 
-  function createDefaultState() {
-    return {
-      points: 0,
-      contactEmail: "textbattle.help@gmail.com",
-      maxCharacters: 5,
-      nextCharacterId: 2,
-      nextBattleId: 4,
-      characters: [
-        {
-          id: 1,
-          name: "루멘 블레이드",
-          summary: "어둠 속에서 빛의 잔상을 남기는 검투사 캐릭터",
-          elo: 1240
-        }
-      ],
-      battleLogs: [
-        {
-          id: 1,
-          leftName: "루멘 블레이드",
-          rightName: "바이트 킹",
-          winner: "바이트 킹",
-          story: "초반에는 루멘 블레이드가 빠르게 주도권을 잡았지만, 후반 운영에서 바이트 킹이 반격에 성공했습니다.",
-          date: "2026.03.13"
-        },
-        {
-          id: 2,
-          leftName: "세라핀",
-          rightName: "제로 코드",
-          winner: "세라핀",
-          story: "거리 조절과 견제 타이밍이 완벽하게 맞아떨어지며 세라핀이 안정적으로 승리했습니다.",
-          date: "2026.03.12"
-        },
-        {
-          id: 3,
-          leftName: "실버 노트",
-          rightName: "미드나잇 러너",
-          winner: "실버 노트",
-          story: "짧은 연계가 연속으로 들어가며 실버 노트가 템포를 빼앗지 않고 끝까지 밀어붙였습니다.",
-          date: "2026.03.11"
-        }
-      ],
-      codeBattle: {
-        title: "문자열 미러 매치",
-        difficulty: "중간",
-        description:
-          "주어진 문자열이 좌우 대칭 규칙을 만족하는지 검사하는 함수를 작성하세요. 입력이 길어져도 빠르게 처리할 수 있어야 합니다.",
-        starterCode:
-          "function solve(input) {\n  // 여기에 코드를 작성하세요.\n  return input;\n}\n\nconsole.log(solve('text battle'));\n",
-        submissions: [
-          {
-            title: "문자열 미러 매치",
-            status: "성공",
-            language: "JavaScript",
-            result: "테스트 12개 통과"
-          },
-          {
-            title: "문자열 미러 매치",
-            status: "실패",
-            language: "JavaScript",
-            result: "예외 케이스 2개 실패"
-          },
-          {
-            title: "문자열 미러 매치",
-            status: "성공",
-            language: "Python",
-            result: "실행 시간 0.18초"
-          }
-        ]
-      },
-      account: {
-        email: "",
-        googleConnected: false,
-        uiLanguage: "ko",
-        battleLanguage: "한국어",
-        theme: "purple"
-      }
-    };
+  var view = {
+    tab: "home",
+    rankingMode: PERSONAL_RANKING,
+    selectedCharacterId: null,
+    battleResultId: null,
+    homeCreateOpen: false,
+    isBattling: false,
+    battleNotice: ""
+  };
+
+  function createId(prefix) {
+    return prefix + "-" + Math.random().toString(36).slice(2, 10);
   }
 
-  function getState() {
-    try {
-      var saved = JSON.parse(window.localStorage.getItem(STORAGE_KEY) || "null");
-
-      if (!saved) {
-        return createDefaultState();
-      }
-
-      return Object.assign(createDefaultState(), saved, {
-        account: Object.assign(createDefaultState().account, saved.account || {}),
-        codeBattle: Object.assign(createDefaultState().codeBattle, saved.codeBattle || {})
-      });
-    } catch (error) {
-      return createDefaultState();
-    }
-  }
-
-  function saveState() {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(window.__textBattleState));
-  }
-
-  function updateState(updater) {
-    updater(window.__textBattleState);
-    saveState();
-  }
-
-  function getPage() {
-    return document.body ? document.body.dataset.page || "home" : "home";
-  }
-
-  function getElement(id) {
-    return document.getElementById(id);
+  function nowIso() {
+    return new Date().toISOString();
   }
 
   function escapeHtml(value) {
@@ -132,696 +46,1287 @@
       .replace(/'/g, "&#39;");
   }
 
-  function renderHeader() {
-    var target = getElement("appHeader");
+  function readJson(key) {
+    try {
+      return JSON.parse(window.localStorage.getItem(key) || "null");
+    } catch (error) {
+      return null;
+    }
+  }
 
-    if (!target) {
-      return;
+  function writeJson(key, value) {
+    window.localStorage.setItem(key, JSON.stringify(value));
+  }
+
+  function clampText(text, length) {
+    return String(text || "").slice(0, length);
+  }
+
+  function createSession() {
+    var session = readJson(SESSION_KEY);
+    var nickname;
+
+    if (session && session.userId && session.nickname) {
+      return session;
     }
 
-    target.innerHTML =
-      '<div class="brand-block">' +
-      '<p class="brand-caption">Mobile Web MVP</p>' +
-      '<h1 class="brand-title">텍스트 배틀</h1>' +
+    nickname = String(window.prompt("사용할 닉네임을 입력하세요.") || "").trim();
+
+    if (!nickname) {
+      nickname = "플레이어" + Math.floor(Math.random() * 9000 + 1000);
+    }
+
+    session = {
+      userId: createId("user"),
+      nickname: nickname
+    };
+
+    writeJson(SESSION_KEY, session);
+    return session;
+  }
+
+  function createInitialState(session) {
+    var guildA = createId("guild");
+    var guildB = createId("guild");
+    var users = [
+      { id: session.userId, nickname: session.nickname, points: 0, createdAt: nowIso() },
+      { id: createId("user"), nickname: "아스트라", points: 34, createdAt: nowIso() },
+      { id: createId("user"), nickname: "세리온", points: 49, createdAt: nowIso() },
+      { id: createId("user"), nickname: "릴리아", points: 28, createdAt: nowIso() },
+      { id: createId("user"), nickname: "카덴", points: 39, createdAt: nowIso() }
+    ];
+
+    return {
+      version: STATE_VERSION,
+      userId: session.userId,
+      seasonEndsAt: Date.now() + 1000 * 60 * 60 * 24 * 5,
+      users: users,
+      characters: [
+        {
+          id: createId("char"),
+          userId: users[1].id,
+          name: "블레이즈 헌터",
+          race: "휴먼",
+          element: "불",
+          battleText: "불꽃처럼 거세게 밀어붙이며 주도권을 빼앗는다.",
+          wins: 8,
+          losses: 3,
+          draws: 1,
+          createdAt: nowIso()
+        },
+        {
+          id: createId("char"),
+          userId: users[2].id,
+          name: "타이드 미러",
+          race: "엘프",
+          element: "물",
+          battleText: "물결처럼 흐르며 상대의 빈틈을 천천히 잠식한다.",
+          wins: 11,
+          losses: 4,
+          draws: 2,
+          createdAt: nowIso()
+        },
+        {
+          id: createId("char"),
+          userId: users[3].id,
+          name: "그린 팽",
+          race: "오크",
+          element: "풀",
+          battleText: "질긴 생명력과 압박으로 전장을 끝까지 장악한다.",
+          wins: 6,
+          losses: 5,
+          draws: 1,
+          createdAt: nowIso()
+        },
+        {
+          id: createId("char"),
+          userId: users[4].id,
+          name: "스톤 볼트",
+          race: "드워프",
+          element: "땅",
+          battleText: "묵직한 한 방과 방어적인 운영으로 균형을 무너뜨린다.",
+          wins: 9,
+          losses: 7,
+          draws: 0,
+          createdAt: nowIso()
+        }
+      ],
+      battles: [],
+      guilds: [
+        {
+          id: guildA,
+          name: "Azure Fang",
+          score: 120,
+          inviteCode: "FANG-1024",
+          createdAt: nowIso()
+        },
+        {
+          id: guildB,
+          name: "Crimson Howl",
+          score: 95,
+          inviteCode: "HOWL-2048",
+          createdAt: nowIso()
+        }
+      ],
+      guildMembers: [
+        { guildId: guildA, userId: users[1].id, joinedAt: nowIso() },
+        { guildId: guildA, userId: users[2].id, joinedAt: nowIso() },
+        { guildId: guildB, userId: users[3].id, joinedAt: nowIso() },
+        { guildId: guildB, userId: users[4].id, joinedAt: nowIso() }
+      ]
+    };
+  }
+
+  function isValidStateShape(state) {
+    return !!(
+      state &&
+      state.version === STATE_VERSION &&
+      Array.isArray(state.users) &&
+      Array.isArray(state.characters) &&
+      Array.isArray(state.battles) &&
+      Array.isArray(state.guilds) &&
+      Array.isArray(state.guildMembers)
+    );
+  }
+
+  function getState() {
+    var session = createSession();
+    var saved = readJson(APP_STATE_KEY);
+    var state = isValidStateShape(saved) ? saved : createInitialState(session);
+    var currentUser = state.users.find(function (user) {
+      return user.id === session.userId;
+    });
+
+    if (!currentUser) {
+      state.users.unshift({
+        id: session.userId,
+        nickname: session.nickname,
+        points: 0,
+        createdAt: nowIso()
+      });
+    } else {
+      currentUser.nickname = session.nickname;
+    }
+
+    state.userId = session.userId;
+    state.version = STATE_VERSION;
+    saveState(state);
+    return state;
+  }
+
+  function saveState(state) {
+    writeJson(APP_STATE_KEY, state);
+  }
+
+  function getCurrentUser(state) {
+    return state.users.find(function (user) {
+      return user.id === state.userId;
+    }) || null;
+  }
+
+  function getCharactersByUser(state, userId) {
+    return state.characters.filter(function (character) {
+      return character.userId === userId;
+    });
+  }
+
+  function getCharacterById(state, characterId) {
+    return state.characters.find(function (character) {
+      return character.id === characterId;
+    }) || null;
+  }
+
+  function getUserById(state, userId) {
+    return state.users.find(function (user) {
+      return user.id === userId;
+    }) || null;
+  }
+
+  function getGuildIdByUser(state, userId) {
+    var membership = state.guildMembers.find(function (member) {
+      return member.userId === userId;
+    });
+
+    return membership ? membership.guildId : null;
+  }
+
+  function getGuildById(state, guildId) {
+    return state.guilds.find(function (guild) {
+      return guild.id === guildId;
+    }) || null;
+  }
+
+  function getGuildByUser(state, userId) {
+    var guildId = getGuildIdByUser(state, userId);
+    return guildId ? getGuildById(state, guildId) : null;
+  }
+
+  function getGuildMembers(state, guildId) {
+    return state.guildMembers
+      .filter(function (member) {
+        return member.guildId === guildId;
+      })
+      .map(function (member) {
+        return getUserById(state, member.userId);
+      })
+      .filter(Boolean);
+  }
+
+  function getCharacterTotalBattles(character) {
+    return Number(character.wins || 0) + Number(character.losses || 0) + Number(character.draws || 0);
+  }
+
+  function getWinRate(character) {
+    var total = getCharacterTotalBattles(character);
+    return total ? Math.round((Number(character.wins || 0) / total) * 100) : 0;
+  }
+
+  function getScore(character) {
+    return Number(character.wins || 0) * 3 + Number(character.draws || 0);
+  }
+
+  function getLeague(character) {
+    var score = getScore(character);
+    if (score >= 30) {
+      return "다이아";
+    }
+    if (score >= 20) {
+      return "플래티넘";
+    }
+    if (score >= 10) {
+      return "골드";
+    }
+    return "브론즈";
+  }
+
+  function getPersonalRanking(state) {
+    return state.characters
+      .slice()
+      .sort(function (a, b) {
+        return getScore(b) - getScore(a) || Number(b.wins || 0) - Number(a.wins || 0);
+      })
+      .map(function (character, index) {
+        return {
+          rank: index + 1,
+          character: character,
+          user: getUserById(state, character.userId)
+        };
+      });
+  }
+
+  function getGuildRanking(state) {
+    return state.guilds
+      .slice()
+      .sort(function (a, b) {
+        return Number(b.score || 0) - Number(a.score || 0);
+      })
+      .map(function (guild, index) {
+        return {
+          rank: index + 1,
+          guild: guild,
+          members: getGuildMembers(state, guild.id)
+        };
+      });
+  }
+
+  function formatSeasonRemaining(targetTime) {
+    var remaining = Math.max(0, Number(targetTime || 0) - Date.now());
+    var days = Math.floor(remaining / (1000 * 60 * 60 * 24));
+    var hours = Math.floor((remaining % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    return days + "일 " + hours + "시간";
+  }
+
+  function getElementAdvantage(element) {
+    return {
+      불: "풀",
+      물: "불",
+      풀: "땅",
+      땅: "전기",
+      전기: "물"
+    }[element] || "";
+  }
+
+  function describeCharacterForAi(character) {
+    return [
+      "종족: " + (character.race || "미설정"),
+      "속성: " + (character.element || "미설정"),
+      "전투 문장: " + (character.battleText || "")
+    ].join("\n");
+  }
+
+  function findAiWinner(characterA, characterB, result) {
+    if (!result) {
+      return null;
+    }
+
+    if (result.winner_id) {
+      if (String(result.winner_id) === String(characterA.id)) {
+        return characterA;
+      }
+
+      if (String(result.winner_id) === String(characterB.id)) {
+        return characterB;
+      }
+    }
+
+    if (result.winner_name) {
+      if (String(result.winner_name) === String(characterA.name)) {
+        return characterA;
+      }
+
+      if (String(result.winner_name) === String(characterB.name)) {
+        return characterB;
+      }
+    }
+
+    if (result.winner) {
+      if (String(result.winner).toUpperCase() === "A") {
+        return characterA;
+      }
+
+      if (String(result.winner).toUpperCase() === "B") {
+        return characterB;
+      }
+    }
+
+    return null;
+  }
+
+  async function judgeBattleWithAi(characterA, characterB) {
+    var result;
+    var winner;
+
+    if (!window.SupabaseApi || typeof window.SupabaseApi.generateAiBattleNarrative !== "function") {
+      throw new Error("AI 전투 함수를 불러오지 못했습니다.");
+    }
+
+    result = await window.SupabaseApi.generateAiBattleNarrative({
+      character_a: {
+        id: characterA.id,
+        name: characterA.name,
+        description: describeCharacterForAi(characterA)
+      },
+      character_b: {
+        id: characterB.id,
+        name: characterB.name,
+        description: describeCharacterForAi(characterB)
+      }
+    });
+
+    winner = findAiWinner(characterA, characterB, result);
+
+    if (!winner) {
+      throw new Error("AI 응답에서 승자를 식별하지 못했습니다.");
+    }
+
+    return {
+      winner: winner,
+      loser: winner.id === characterA.id ? characterB : characterA,
+      battleLog: String(result.battle_log || result.battle_story || result.story || result.reasoning || "").trim(),
+      source: "ai"
+    };
+  }
+
+  function scoreCharacterForBattle(character, opponent) {
+    var score = getScore(character) * 4;
+    var text = String(character.battleText || "");
+    var raceBonus = RACES.indexOf(character.race) + 1;
+    var elementBonus = ELEMENTS.indexOf(character.element) + 1;
+
+    score += text.length;
+    score += raceBonus * 2;
+    score += elementBonus * 2;
+    score += Math.floor(Math.random() * 18);
+
+    if (getElementAdvantage(character.element) === opponent.element) {
+      score += 12;
+    }
+
+    return score;
+  }
+
+  function buildBattleLog(playerCharacter, opponentCharacter, outcome, battleType) {
+    var opener = battleType === "guild" ? "길드 대항전" : "개인 배틀";
+    var resultLine =
+      outcome === "win"
+        ? playerCharacter.name + "가 흐름을 잡고 승리했다."
+        : outcome === "loss"
+        ? opponentCharacter.name + "가 주도권을 끝까지 지켜냈다."
+        : "두 캐릭터 모두 마지막까지 버텨 무승부로 끝났다.";
+
+    return [
+      opener + " 시작",
+      playerCharacter.name + ": " + playerCharacter.battleText,
+      opponentCharacter.name + ": " + opponentCharacter.battleText,
+      resultLine
+    ].join("\n");
+  }
+
+  function updateBattleRecord(character, outcome) {
+    if (outcome === "win") {
+      character.wins = Number(character.wins || 0) + 1;
+    } else if (outcome === "loss") {
+      character.losses = Number(character.losses || 0) + 1;
+    } else {
+      character.draws = Number(character.draws || 0) + 1;
+    }
+  }
+
+  function createFallbackBattleDecision(playerCharacter, opponentCharacter, battleType) {
+    var myScore = scoreCharacterForBattle(playerCharacter, opponentCharacter);
+    var enemyScore = scoreCharacterForBattle(opponentCharacter, playerCharacter);
+    var margin = myScore - enemyScore;
+    var winnerCharacter;
+
+    if (Math.abs(margin) <= 6) {
+      return {
+        winner: null,
+        loser: null,
+        battleLog:
+          (battleType === "guild" ? "길드 대항전" : "개인 배틀") +
+          "에서 두 캐릭터가 끝까지 공방을 주고받았지만 결정타를 만들지 못했다.",
+        source: "fallback"
+      };
+    }
+
+    winnerCharacter = margin > 0 ? playerCharacter : opponentCharacter;
+
+    return {
+      winner: winnerCharacter,
+      loser: winnerCharacter.id === playerCharacter.id ? opponentCharacter : playerCharacter,
+      battleLog:
+        winnerCharacter.name +
+        "가 전투 문장의 흐름과 상성 우위를 살려 주도권을 끝까지 밀어붙였다.",
+      source: "fallback"
+    };
+  }
+
+  async function runBattle(state, characterId, battleType) {
+    var playerCharacter = getCharacterById(state, characterId);
+    var playerGuildId;
+    var candidates;
+    var opponentCharacter;
+    var outcome;
+    var opponentOutcome;
+    var battle;
+    var currentUser = getCurrentUser(state);
+    var decision;
+
+    if (!playerCharacter || playerCharacter.userId !== state.userId) {
+      window.alert("내 캐릭터로만 배틀을 시작할 수 있습니다.");
+      return false;
+    }
+
+    if (battleType === "guild") {
+      playerGuildId = getGuildIdByUser(state, state.userId);
+      if (!playerGuildId) {
+        window.alert("길드에 가입해야 대항전에 참여할 수 있습니다.");
+        return false;
+      }
+
+      candidates = state.characters.filter(function (character) {
+        var guildId = getGuildIdByUser(state, character.userId);
+        return character.userId !== state.userId && guildId && guildId !== playerGuildId;
+      });
+    } else {
+      candidates = state.characters.filter(function (character) {
+        return character.userId !== state.userId;
+      });
+    }
+
+    if (!candidates.length) {
+      window.alert("매칭 가능한 상대가 없습니다.");
+      return false;
+    }
+
+    opponentCharacter = candidates[Math.floor(Math.random() * candidates.length)];
+
+    try {
+      decision = await judgeBattleWithAi(playerCharacter, opponentCharacter);
+      view.battleNotice = "AI 판정이 반영되었습니다.";
+    } catch (error) {
+      console.warn("AI battle fallback:", error);
+      decision = createFallbackBattleDecision(playerCharacter, opponentCharacter, battleType);
+      view.battleNotice = "AI 호출이 실패해 로컬 판정으로 처리되었습니다.";
+    }
+
+    if (!decision.winner) {
+      outcome = "draw";
+      opponentOutcome = "draw";
+    } else if (decision.winner.id === playerCharacter.id) {
+      outcome = "win";
+      opponentOutcome = "loss";
+    } else {
+      outcome = "loss";
+      opponentOutcome = "win";
+    }
+
+    updateBattleRecord(playerCharacter, outcome);
+    updateBattleRecord(opponentCharacter, opponentOutcome);
+
+    if (currentUser) {
+      if (battleType === "guild" && outcome === "win") {
+        currentUser.points = Number(currentUser.points || 0) + 5;
+      } else if (battleType === "solo" && outcome === "win") {
+        currentUser.points = Number(currentUser.points || 0) + 3;
+      } else if (outcome === "draw") {
+        currentUser.points = Number(currentUser.points || 0) + 1;
+      }
+    }
+
+    if (battleType === "guild") {
+      var winnerGuildId = outcome === "win"
+        ? getGuildIdByUser(state, playerCharacter.userId)
+        : outcome === "loss"
+        ? getGuildIdByUser(state, opponentCharacter.userId)
+        : null;
+
+      if (winnerGuildId) {
+        var winnerGuild = getGuildById(state, winnerGuildId);
+        if (winnerGuild) {
+          winnerGuild.score = Number(winnerGuild.score || 0) + GUILD_WIN_SCORE;
+        }
+      }
+    }
+
+    battle = {
+      id: createId("battle"),
+      battleType: battleType,
+      player1CharacterId: playerCharacter.id,
+      player2CharacterId: opponentCharacter.id,
+      winnerCharacterId: decision.winner ? decision.winner.id : null,
+      battleLog: decision.battleLog || buildBattleLog(playerCharacter, opponentCharacter, outcome, battleType),
+      source: decision.source || "fallback",
+      createdAt: nowIso()
+    };
+
+    state.battles.unshift(battle);
+    view.selectedCharacterId = playerCharacter.id;
+    view.battleResultId = battle.id;
+    saveState(state);
+    return true;
+  }
+
+  function createCharacter(state, payload) {
+    var myCharacters = getCharactersByUser(state, state.userId);
+
+    if (myCharacters.length >= MAX_CHARACTERS) {
+      window.alert("캐릭터는 최대 5개까지 만들 수 있습니다.");
+      return false;
+    }
+
+    state.characters.unshift({
+      id: createId("char"),
+      userId: state.userId,
+      name: payload.name,
+      race: payload.race,
+      element: payload.element,
+      battleText: payload.battleText,
+      wins: 0,
+      losses: 0,
+      draws: 0,
+      createdAt: nowIso()
+    });
+
+    saveState(state);
+    return true;
+  }
+
+  function deleteCharacter(state, characterId) {
+    var nextCharacters = state.characters.filter(function (character) {
+      return character.id !== characterId;
+    });
+    var nextBattles = state.battles.filter(function (battle) {
+      return battle.player1CharacterId !== characterId && battle.player2CharacterId !== characterId;
+    });
+
+    state.characters = nextCharacters;
+    state.battles = nextBattles;
+
+    if (view.selectedCharacterId === characterId) {
+      view.selectedCharacterId = null;
+    }
+
+    view.battleResultId = null;
+
+    saveState(state);
+  }
+
+  function createGuild(state, guildName) {
+    var userGuild = getGuildByUser(state, state.userId);
+
+    if (userGuild) {
+      window.alert("이미 길드에 가입되어 있습니다.");
+      return false;
+    }
+
+    var guild = {
+      id: createId("guild"),
+      name: guildName,
+      score: 0,
+      inviteCode: "KW-" + Math.random().toString(36).slice(2, 8).toUpperCase(),
+      createdAt: nowIso()
+    };
+
+    state.guilds.unshift(guild);
+    state.guildMembers.push({
+      guildId: guild.id,
+      userId: state.userId,
+      joinedAt: nowIso()
+    });
+    saveState(state);
+    return true;
+  }
+
+  function joinGuild(state, inviteCode) {
+    var userGuild = getGuildByUser(state, state.userId);
+    var guild = state.guilds.find(function (item) {
+      return String(item.inviteCode || "").toUpperCase() === inviteCode.toUpperCase();
+    });
+
+    if (userGuild) {
+      window.alert("이미 길드에 가입되어 있습니다.");
+      return false;
+    }
+
+    if (!guild) {
+      window.alert("초대 코드를 찾을 수 없습니다.");
+      return false;
+    }
+
+    state.guildMembers.push({
+      guildId: guild.id,
+      userId: state.userId,
+      joinedAt: nowIso()
+    });
+    saveState(state);
+    return true;
+  }
+
+  function leaveGuild(state) {
+    state.guildMembers = state.guildMembers.filter(function (member) {
+      return member.userId !== state.userId;
+    });
+    saveState(state);
+  }
+
+  function setActiveTab(tab) {
+    view.tab = tab;
+    view.selectedCharacterId = null;
+    view.battleResultId = null;
+    view.battleNotice = "";
+    renderApp();
+  }
+
+  function renderTag(label, value, accent) {
+    return '<span class="tag-badge' + (accent ? " tag-badge--" + accent : "") + '">' + escapeHtml(label + " " + value) + "</span>";
+  }
+
+  function renderCharacterCard(character, state, context) {
+    var selected = view.selectedCharacterId === character.id;
+    var winRate = getWinRate(character);
+    var actions = [];
+    var battleLabel = view.isBattling ? "판정 중..." : "배틀";
+    var guildBattleLabel = view.isBattling ? "판정 중..." : "길드 배틀";
+
+    if (context === "home") {
+      actions.push('<button class="button button--primary" data-action="start-solo-battle" data-character-id="' + escapeHtml(character.id) + '">' + battleLabel + "</button>");
+      actions.push('<button class="button button--danger" data-action="delete-character" data-character-id="' + escapeHtml(character.id) + '">삭제</button>');
+    } else if (context === "arena") {
+      actions.push('<button class="button button--primary" data-action="start-guild-battle" data-character-id="' + escapeHtml(character.id) + '">' + guildBattleLabel + "</button>");
+    }
+
+    return (
+      '<article class="character-card' + (selected ? " character-card--selected" : "") + '" data-action="select-character" data-character-id="' + escapeHtml(character.id) + '">' +
+      '<div class="character-card__content">' +
+      '<div class="stack stack--8">' +
+      '<h3 class="character-card__name">' + escapeHtml(character.name) + "</h3>" +
+      '<p class="character-card__description">' + escapeHtml(character.battleText) + "</p>" +
       "</div>" +
-      '<div class="coin-badge" aria-label="포인트">' +
-      '<span class="coin-badge__icon">🪙</span>' +
-      '<span class="coin-badge__value">' +
-      escapeHtml(window.__textBattleState.points) +
-      "</span>" +
+      '<div class="tag-row">' +
+      renderTag("종족", character.race || "미설정") +
+      renderTag("속성", character.element || "미설정") +
+      renderTag("승률", winRate + "%", "accent") +
+      renderTag("점수", getScore(character), "accent") +
+      "</div>" +
+      "</div>" +
+      '<div class="character-card__actions">' +
+      actions.join("") +
+      "</div>" +
+      "</article>"
+    );
+  }
+
+  function renderBattleResult(state) {
+    var battle = state.battles.find(function (item) {
+      return item.id === view.battleResultId;
+    });
+    var opponent;
+    var winner;
+
+    if (!battle) {
+      return "";
+    }
+
+    opponent = getCharacterById(
+      state,
+      battle.player1CharacterId === view.selectedCharacterId ? battle.player2CharacterId : battle.player1CharacterId
+    );
+    winner = battle.winnerCharacterId ? getCharacterById(state, battle.winnerCharacterId) : null;
+
+    return (
+      '<section class="panel panel--result">' +
+      '<div class="section-heading">' +
+      "<div>" +
+      '<p class="section-kicker">최근 결과</p>' +
+      '<h2 class="section-title">배틀 결과</h2>' +
+      "</div>" +
+      '<span class="tag-badge">' + escapeHtml(battle.battleType === "guild" ? "길드 배틀" : "개인 배틀") + "</span>" +
+      "</div>" +
+      (view.battleNotice ? '<p class="section-copy">' + escapeHtml(view.battleNotice) + "</p>" : "") +
+      '<div class="battle-result__summary">' +
+      '<div class="stat-card"><span>상대</span><strong>' + escapeHtml(opponent ? opponent.name : "알 수 없음") + "</strong></div>" +
+      '<div class="stat-card"><span>판정</span><strong>' + escapeHtml(winner ? winner.name + " 승리" : "무승부") + "</strong></div>" +
+      '<div class="stat-card"><span>판정 방식</span><strong>' + escapeHtml(battle.source === "ai" ? "AI" : "Fallback") + "</strong></div>" +
+      "</div>" +
+      '<pre class="battle-log">' + escapeHtml(battle.battleLog) + "</pre>" +
+      "</section>"
+    );
+  }
+
+  function renderHomeTab(state) {
+    var myCharacters = getCharactersByUser(state, state.userId);
+    var selected = myCharacters.find(function (character) {
+      return character.id === view.selectedCharacterId;
+    }) || null;
+
+    return (
+      '<section class="page">' +
+      '<header class="page-header">' +
+      '<div>' +
+      '<p class="page-kicker">Keyboard Warrior</p>' +
+      '<h1 class="page-title">내 캐릭터</h1>' +
+      '<p class="page-copy">캐릭터를 만들고 바로 개인 배틀에 투입하세요. 전투 문장은 생성 후 수정할 수 없습니다.</p>' +
+      "</div>" +
+      '<button class="button button--secondary button--compact" data-action="toggle-create-form">캐릭터 생성</button>' +
+      "</header>" +
+      '<section class="panel panel--intro">' +
+      '<div class="counter-row">' +
+      renderTag("보유", myCharacters.length + "/" + MAX_CHARACTERS) +
+      renderTag("개인 포인트", (getCurrentUser(state) || { points: 0 }).points, "accent") +
+      (selected ? renderTag("선택", selected.name, "accent") : "") +
+      "</div>" +
+      "</section>" +
+      (view.homeCreateOpen ? renderCreateCharacterForm() : "") +
+      '<section class="list-section">' +
+      (myCharacters.length
+        ? myCharacters.map(function (character) {
+            return renderCharacterCard(character, state, "home");
+          }).join("")
+        : renderEmptyState("아직 캐릭터가 없습니다.", "첫 캐릭터를 만들고 개인 배틀을 시작하세요.")) +
+      "</section>" +
+      renderBattleResult(state) +
+      "</section>"
+    );
+  }
+
+  function renderCreateCharacterForm() {
+    return (
+      '<section class="panel">' +
+      '<div class="section-heading">' +
+      "<div>" +
+      '<p class="section-kicker">캐릭터 생성</p>' +
+      '<h2 class="section-title">새 캐릭터 등록</h2>' +
+      "</div>" +
+      '<button class="button button--ghost button--compact" data-action="toggle-create-form">닫기</button>' +
+      "</div>" +
+      '<form class="form-stack" id="characterCreateForm">' +
+      '<label class="field">' +
+      '<span class="field__label">캐릭터 이름</span>' +
+      '<input class="field__control" name="name" maxlength="20" required placeholder="예: 블레이즈 헌터" />' +
+      "</label>" +
+      '<label class="field">' +
+      '<span class="field__label">종족</span>' +
+      '<select class="field__control" name="race" required>' +
+      RACES.map(function (race) {
+        return '<option value="' + escapeHtml(race) + '">' + escapeHtml(race) + "</option>";
+      }).join("") +
+      "</select>" +
+      "</label>" +
+      '<label class="field">' +
+      '<span class="field__label">속성</span>' +
+      '<select class="field__control" name="element" required>' +
+      ELEMENTS.map(function (element) {
+        return '<option value="' + escapeHtml(element) + '">' + escapeHtml(element) + "</option>";
+      }).join("") +
+      "</select>" +
+      "</label>" +
+      '<label class="field">' +
+      '<span class="field__label">전투 문장</span>' +
+      '<textarea class="field__control field__control--textarea" name="battleText" maxlength="' + BATTLE_TEXT_LIMIT + '" required placeholder="최대 100자까지 입력할 수 있습니다."></textarea>' +
+      '<span class="field__hint field__hint--align-right">생성 후 수정 불가 / 최대 100자</span>' +
+      "</label>" +
+      '<button class="button button--primary button--full" type="submit">생성하기</button>' +
+      "</form>" +
+      "</section>"
+    );
+  }
+
+  function renderRankingTab(state) {
+    var personalRows = getPersonalRanking(state);
+    var guildRows = getGuildRanking(state);
+    var isPersonal = view.rankingMode === PERSONAL_RANKING;
+
+    return (
+      '<section class="page">' +
+      '<header class="page-header">' +
+      '<div>' +
+      '<p class="page-kicker">Leaderboard</p>' +
+      '<h1 class="page-title">랭킹</h1>' +
+      '<p class="page-copy">개인 랭킹과 길드 랭킹을 전환해 전체 순위를 확인하세요.</p>' +
+      "</div>" +
+      "</header>" +
+      '<section class="panel">' +
+      '<div class="segment-control">' +
+      '<button class="segment-control__button' + (isPersonal ? " is-active" : "") + '" data-action="set-ranking-mode" data-mode="personal">개인 랭킹</button>' +
+      '<button class="segment-control__button' + (!isPersonal ? " is-active" : "") + '" data-action="set-ranking-mode" data-mode="guild">길드 랭킹</button>' +
+      "</div>" +
+      '<div class="list-section list-section--tight">' +
+      (isPersonal
+        ? personalRows.map(renderPersonalRankRow).join("")
+        : guildRows.map(renderGuildRankRow).join("")) +
+      "</div>" +
+      "</section>" +
+      "</section>"
+    );
+  }
+
+  function renderPersonalRankRow(entry) {
+    return (
+      '<article class="rank-row">' +
+      '<div class="rank-row__leading"><span class="rank-row__rank">#' + entry.rank + '</span></div>' +
+      '<div class="rank-row__body">' +
+      '<h3 class="rank-row__title">' + escapeHtml(entry.character.name) + "</h3>" +
+      '<p class="rank-row__meta">' + escapeHtml((entry.user && entry.user.nickname) || "알 수 없음") + "</p>" +
+      '<div class="tag-row">' +
+      renderTag("승", entry.character.wins || 0) +
+      renderTag("승률", getWinRate(entry.character) + "%") +
+      renderTag("점수", getScore(entry.character), "accent") +
+      "</div>" +
+      "</div>" +
+      "</article>"
+    );
+  }
+
+  function renderGuildRankRow(entry) {
+    return (
+      '<article class="rank-row">' +
+      '<div class="rank-row__leading"><span class="rank-row__rank">#' + entry.rank + '</span></div>' +
+      '<div class="rank-row__body">' +
+      '<h3 class="rank-row__title">' + escapeHtml(entry.guild.name) + "</h3>" +
+      '<p class="rank-row__meta">' + escapeHtml(entry.members.length + "명 참여") + "</p>" +
+      '<div class="tag-row">' +
+      renderTag("길드 점수", entry.guild.score, "accent") +
+      "</div>" +
+      "</div>" +
+      "</article>"
+    );
+  }
+
+  function renderArenaTab(state) {
+    var myGuild = getGuildByUser(state, state.userId);
+    var myCharacters = getCharactersByUser(state, state.userId);
+    var guildRank;
+
+    if (!myGuild) {
+      return (
+        '<section class="page">' +
+        '<header class="page-header">' +
+        '<div>' +
+        '<p class="page-kicker">Guild War</p>' +
+        '<h1 class="page-title">대항전</h1>' +
+        '<p class="page-copy">개인 배틀과 분리된 길드 전용 전투 탭입니다.</p>' +
+        "</div>" +
+        "</header>" +
+        '<section class="panel empty-state">' +
+        '<h2 class="section-title">길드에 가입해야 대항전에 참여할 수 있습니다</h2>' +
+        '<p class="section-copy">길드를 만들거나 초대 코드로 가입한 뒤 길드 전투를 시작할 수 있습니다.</p>' +
+        '<div class="button-stack">' +
+        '<button class="button button--primary" data-action="go-tab" data-tab="guild">길드 생성 / 가입</button>' +
+        "</div>" +
+        "</section>" +
+        "</section>"
+      );
+    }
+
+    guildRank = getGuildRanking(state).find(function (entry) {
+      return entry.guild.id === myGuild.id;
+    });
+
+    return (
+      '<section class="page">' +
+      '<header class="page-header">' +
+      '<div>' +
+      '<p class="page-kicker">Guild War</p>' +
+      '<h1 class="page-title">대항전</h1>' +
+      '<p class="page-copy">길드 소속 캐릭터로 시즌 점수를 올리는 전용 전투입니다.</p>' +
+      "</div>" +
+      "</header>" +
+      '<section class="panel">' +
+      '<div class="stats-grid">' +
+      '<div class="stat-card"><span>길드</span><strong>' + escapeHtml(myGuild.name) + "</strong></div>" +
+      '<div class="stat-card"><span>현재 점수</span><strong>' + escapeHtml(myGuild.score) + "</strong></div>" +
+      '<div class="stat-card"><span>현재 순위</span><strong>#' + escapeHtml(guildRank ? guildRank.rank : "-") + "</strong></div>" +
+      '<div class="stat-card"><span>시즌 종료</span><strong>' + escapeHtml(formatSeasonRemaining(state.seasonEndsAt)) + "</strong></div>" +
+      "</div>" +
+      "</section>" +
+      '<section class="list-section">' +
+      (myCharacters.length
+        ? myCharacters.map(function (character) {
+            return renderCharacterCard(character, state, "arena");
+          }).join("")
+        : renderEmptyState("길드전에 투입할 캐릭터가 없습니다.", "홈 탭에서 먼저 캐릭터를 생성하세요.")) +
+      "</section>" +
+      renderBattleResult(state) +
+      "</section>"
+    );
+  }
+
+  function renderGuildTab(state) {
+    var guild = getGuildByUser(state, state.userId);
+    var members;
+    var guildRank;
+
+    if (!guild) {
+      return (
+        '<section class="page">' +
+        '<header class="page-header">' +
+        '<div>' +
+        '<p class="page-kicker">Guild</p>' +
+        '<h1 class="page-title">길드</h1>' +
+        '<p class="page-copy">초대 코드 기반으로 길드를 만들거나 가입할 수 있습니다.</p>' +
+        "</div>" +
+        "</header>" +
+        '<section class="panel">' +
+        '<div class="section-heading">' +
+        '<div><p class="section-kicker">길드 생성</p><h2 class="section-title">새 길드 만들기</h2></div>' +
+        "</div>" +
+        '<form class="form-stack" id="guildCreateForm">' +
+        '<label class="field">' +
+        '<span class="field__label">길드 이름</span>' +
+        '<input class="field__control" name="name" maxlength="24" required placeholder="예: Azure Fang" />' +
+        "</label>" +
+        '<button class="button button--primary button--full" type="submit">길드 생성</button>' +
+        "</form>" +
+        "</section>" +
+        '<section class="panel">' +
+        '<div class="section-heading">' +
+        '<div><p class="section-kicker">길드 가입</p><h2 class="section-title">초대 코드로 참가</h2></div>' +
+        "</div>" +
+        '<form class="form-stack" id="guildJoinForm">' +
+        '<label class="field">' +
+        '<span class="field__label">초대 코드</span>' +
+        '<input class="field__control" name="inviteCode" maxlength="20" required placeholder="예: FANG-1024" />' +
+        "</label>" +
+        '<button class="button button--secondary button--full" type="submit">길드 가입</button>' +
+        "</form>" +
+        "</section>" +
+        "</section>"
+      );
+    }
+
+    members = getGuildMembers(state, guild.id);
+    guildRank = getGuildRanking(state).find(function (entry) {
+      return entry.guild.id === guild.id;
+    });
+
+    return (
+      '<section class="page">' +
+      '<header class="page-header">' +
+      '<div>' +
+      '<p class="page-kicker">Guild</p>' +
+      '<h1 class="page-title">길드</h1>' +
+      '<p class="page-copy">내 길드 정보와 멤버 현황을 확인할 수 있습니다.</p>' +
+      "</div>" +
+      "</header>" +
+      '<section class="panel">' +
+      '<div class="section-heading">' +
+      '<div><p class="section-kicker">길드 정보</p><h2 class="section-title">' + escapeHtml(guild.name) + "</h2></div>" +
+      "</div>" +
+      '<div class="stats-grid">' +
+      '<div class="stat-card"><span>멤버 수</span><strong>' + escapeHtml(members.length) + "명</strong></div>" +
+      '<div class="stat-card"><span>길드 점수</span><strong>' + escapeHtml(guild.score) + "</strong></div>" +
+      '<div class="stat-card"><span>길드 순위</span><strong>#' + escapeHtml(guildRank ? guildRank.rank : "-") + "</strong></div>" +
+      '<div class="stat-card"><span>초대 코드</span><strong>' + escapeHtml(guild.inviteCode) + "</strong></div>" +
+      "</div>" +
+      '<div class="member-list">' +
+      members.map(function (member) {
+        return '<article class="member-row"><strong>' + escapeHtml(member.nickname) + '</strong></article>';
+      }).join("") +
+      "</div>" +
+      '<button class="button button--danger button--full" data-action="leave-guild">길드 탈퇴</button>' +
+      "</section>" +
+      "</section>"
+    );
+  }
+
+  function renderProfileTab(state) {
+    var user = getCurrentUser(state);
+    var myCharacters = getCharactersByUser(state, state.userId);
+    var totals = myCharacters.reduce(
+      function (acc, character) {
+        acc.wins += Number(character.wins || 0);
+        acc.losses += Number(character.losses || 0);
+        acc.draws += Number(character.draws || 0);
+        return acc;
+      },
+      { wins: 0, losses: 0, draws: 0 }
+    );
+    var totalBattles = totals.wins + totals.losses + totals.draws;
+    var guild = getGuildByUser(state, state.userId);
+
+    return (
+      '<section class="page">' +
+      '<header class="page-header">' +
+      '<div>' +
+      '<p class="page-kicker">Profile</p>' +
+      '<h1 class="page-title">프로필</h1>' +
+      '<p class="page-copy">계정 정보와 전체 전적을 한눈에 확인할 수 있습니다.</p>' +
+      "</div>" +
+      "</header>" +
+      '<section class="panel">' +
+      '<div class="stats-grid">' +
+      '<div class="stat-card"><span>닉네임</span><strong>' + escapeHtml(user ? user.nickname : "-") + "</strong></div>" +
+      '<div class="stat-card"><span>보유 포인트</span><strong>' + escapeHtml(user ? user.points : 0) + "</strong></div>" +
+      '<div class="stat-card"><span>총 전적</span><strong>' + escapeHtml(totalBattles) + "</strong></div>" +
+      '<div class="stat-card"><span>승률</span><strong>' + escapeHtml(totalBattles ? Math.round((totals.wins / totalBattles) * 100) : 0) + "%</strong></div>" +
+      "</div>" +
+      '<div class="panel panel--sub">' +
+      '<p class="section-kicker">소속 길드</p>' +
+      '<h2 class="section-title section-title--small">' + escapeHtml(guild ? guild.name : "미가입") + "</h2>" +
+      '<p class="section-copy">승 ' + escapeHtml(totals.wins) + ' / 패 ' + escapeHtml(totals.losses) + ' / 무 ' + escapeHtml(totals.draws) + "</p>" +
+      "</div>" +
+      "</section>" +
+      "</section>"
+    );
+  }
+
+  function renderEmptyState(title, copy) {
+    return (
+      '<section class="panel empty-state">' +
+      '<h2 class="section-title section-title--small">' + escapeHtml(title) + "</h2>" +
+      '<p class="section-copy">' + escapeHtml(copy) + "</p>" +
+      "</section>"
+    );
+  }
+
+  function renderApp() {
+    var app = document.getElementById("app");
+    var state = getState();
+    var tabContent = "";
+
+    if (view.tab === "home") {
+      tabContent = renderHomeTab(state);
+    } else if (view.tab === "ranking") {
+      tabContent = renderRankingTab(state);
+    } else if (view.tab === "arena") {
+      tabContent = renderArenaTab(state);
+    } else if (view.tab === "guild") {
+      tabContent = renderGuildTab(state);
+    } else {
+      tabContent = renderProfileTab(state);
+    }
+
+    app.innerHTML =
+      '<div class="app-shell">' +
+      tabContent +
+      renderBottomNav() +
       "</div>";
   }
 
   function renderBottomNav() {
-    var target = getElement("bottomNav");
-    var page = getPage();
-
-    if (!target) {
-      return;
-    }
-
-    target.querySelectorAll(".bottom-nav__item").forEach(function (item) {
-      var itemPage = item.getAttribute("data-page");
-      item.classList.toggle("is-active", itemPage === page);
-    });
-  }
-
-  function createStatusBox(message, type) {
     return (
-      '<div class="status-box' +
-      (type ? " status-box--" + escapeHtml(type) : "") +
-      '">' +
-      escapeHtml(message) +
-      "</div>"
+      '<nav class="bottom-nav">' +
+      TABS.map(function (tab) {
+        return (
+          '<button class="bottom-nav__item' + (view.tab === tab.key ? " is-active" : "") + '" data-action="go-tab" data-tab="' + escapeHtml(tab.key) + '">' +
+          '<span class="bottom-nav__icon">' + escapeHtml(tab.icon) + "</span>" +
+          '<span class="bottom-nav__label">' + escapeHtml(tab.label) + "</span>" +
+          "</button>"
+        );
+      }).join("") +
+      "</nav>"
     );
   }
 
-  function getSortedCharacters() {
-    return window.__textBattleState.characters.slice().sort(function (a, b) {
-      return b.elo - a.elo;
-    });
-  }
+  function handleCreateCharacter(event) {
+    var state = getState();
+    var form = event.target;
+    var name = clampText(form.name.value.trim(), 20);
+    var race = form.race.value;
+    var element = form.element.value;
+    var battleText = clampText(form.battleText.value.trim(), BATTLE_TEXT_LIMIT);
 
-  function findCharacter(characterId) {
-    return window.__textBattleState.characters.find(function (character) {
-      return character.id === characterId;
-    });
-  }
+    event.preventDefault();
 
-  function formatToday() {
-    return new Date().toISOString().slice(0, 10).replace(/-/g, ".");
-  }
-
-  function renderHomePage() {
-    var characterTarget = getElement("myCharacterCard");
-    var countTarget = getElement("characterCountBadge");
-    var emailTarget = getElement("contactMail");
-    var noticeTarget = getElement("homeNotice");
-    var characters = window.__textBattleState.characters;
-
-    if (!characterTarget || !countTarget || !emailTarget || !noticeTarget) {
+    if (!name || !race || !element || !battleText) {
+      window.alert("모든 항목을 입력하세요.");
       return;
     }
 
-    if (!characters.length) {
-      characterTarget.innerHTML =
-        '<div class="empty-state">아직 캐릭터가 없습니다. 아래 버튼으로 첫 캐릭터를 추가해보세요.</div>';
-    } else {
-      characterTarget.innerHTML = characters
-        .map(function (character) {
-          return (
-            '<article class="character-card">' +
-            '<div class="character-card__top">' +
-            "<div>" +
-            '<h3 class="character-card__name">' +
-            escapeHtml(character.name) +
-            "</h3>" +
-            '<p class="character-card__meta">' +
-            escapeHtml(character.summary) +
-            "</p>" +
-            "</div>" +
-            '<div class="character-card__actions">' +
-            '<button class="icon-button" type="button" data-edit-character="' +
-            escapeHtml(character.id) +
-            '" aria-label="수정">✏️</button>' +
-            '<button class="icon-button" type="button" data-delete-character="' +
-            escapeHtml(character.id) +
-            '" aria-label="삭제">🗑️</button>' +
-            "</div>" +
-            "</div>" +
-            '<div class="character-card__footer">' +
-            '<span class="pill pill--elo">Elo ' +
-            escapeHtml(character.elo) +
-            "</span>" +
-            '<span class="muted-text">배틀 가능</span>' +
-            "</div>" +
-            "</article>"
-          );
-        })
-        .join("");
+    if (createCharacter(state, {
+      name: name,
+      race: race,
+      element: element,
+      battleText: battleText
+    })) {
+      view.homeCreateOpen = false;
+      renderApp();
     }
-
-    countTarget.textContent = characters.length + "/" + window.__textBattleState.maxCharacters;
-    emailTarget.textContent = window.__textBattleState.contactEmail;
-    noticeTarget.innerHTML = createStatusBox("캐릭터 추가, 수정, 삭제가 실제로 동작합니다.");
   }
 
-  function renderRankingPage() {
-    var heroTarget = getElement("dailyChampionCard");
-    var listTarget = getElement("rankingList");
-    var ranking = getSortedCharacters();
+  function handleGuildCreate(event) {
+    var state = getState();
+    var name = event.target.name.value.trim();
 
-    if (!heroTarget || !listTarget) {
-      return;
-    }
-
-    if (!ranking.length) {
-      heroTarget.innerHTML = '<div class="empty-state">등록된 캐릭터가 없습니다.</div>';
-      listTarget.innerHTML = "";
-      return;
-    }
-
-    heroTarget.innerHTML =
-      '<div class="hero-rank">' +
-      '<div class="card-header">' +
-      '<div>' +
-      '<h3 class="card-title">👑 일간 1위</h3>' +
-      '<p class="card-subtitle">@' +
-      escapeHtml(ranking[0].name.toLowerCase().replace(/\s+/g, "")) +
-      "</p>" +
-      "</div>" +
-      '<button class="icon-button" type="button" aria-label="상세 보기">↗</button>' +
-      "</div>" +
-      '<div class="hero-rank__score">' +
-      escapeHtml(ranking[0].name) +
-      " · " +
-      escapeHtml(ranking[0].elo) +
-      "</div>" +
-      '<p class="hero-rank__time">다음 1위까지 06:18:42</p>' +
-      "</div>";
-
-    listTarget.innerHTML = ranking
-      .slice(0, 5)
-      .map(function (item, index) {
-        return (
-          '<article class="rank-item">' +
-          '<div class="rank-item__order">' +
-          escapeHtml(index + 1) +
-          "</div>" +
-          "<div>" +
-          '<h3 class="rank-item__name">' +
-          escapeHtml(item.name) +
-          "</h3>" +
-          '<p class="rank-item__sub">@' +
-          escapeHtml(item.name.toLowerCase().replace(/\s+/g, "")) +
-          "</p>" +
-          "</div>" +
-          '<div class="rank-item__side">' +
-          '<strong>' +
-          escapeHtml(item.elo) +
-          "</strong>" +
-          '<button class="mini-button mini-button--blue" type="button" data-challenge-character="' +
-          escapeHtml(item.id) +
-          '">모의 배틀</button>' +
-          "</div>" +
-          "</article>"
-        );
-      })
-      .join("");
-  }
-
-  function getMockBattlePair() {
-    var characters = window.__textBattleState.characters;
-
-    if (!characters.length) {
-      return [];
-    }
-
-    if (characters.length === 1) {
-      return [characters[0], characters[0]];
-    }
-
-    return [characters[0], characters[1]];
-  }
-
-  function renderMockBattlePage() {
-    var compareTarget = getElement("mockBattleCompare");
-    var logsTarget = getElement("mockBattleLogs");
-    var pair = getMockBattlePair();
-
-    if (!compareTarget || !logsTarget) {
-      return;
-    }
-
-    if (!pair.length) {
-      compareTarget.innerHTML = '<div class="empty-state">배틀을 시작하려면 캐릭터를 먼저 추가하세요.</div>';
-    } else {
-      compareTarget.innerHTML =
-        '<article class="battle-side">' +
-        '<h3 class="battle-side__name">' +
-        escapeHtml(pair[0].name) +
-        "</h3>" +
-        '<p class="muted-text">' +
-        escapeHtml(pair[0].summary) +
-        "</p>" +
-        '<span class="pill pill--elo">Elo ' +
-        escapeHtml(pair[0].elo) +
-        "</span>" +
-        "</article>" +
-        '<div class="vs-mark">VS</div>' +
-        '<article class="battle-side">' +
-        '<h3 class="battle-side__name">' +
-        escapeHtml(pair[1].name) +
-        "</h3>" +
-        '<p class="muted-text">' +
-        escapeHtml(pair[1].summary) +
-        "</p>" +
-        '<span class="pill pill--elo">Elo ' +
-        escapeHtml(pair[1].elo) +
-        "</span>" +
-        "</article>";
-    }
-
-    logsTarget.innerHTML = window.__textBattleState.battleLogs
-      .slice(0, 3)
-      .map(function (log) {
-        return (
-          '<article class="battle-log">' +
-          '<h3 class="battle-log__title">' +
-          escapeHtml(log.leftName + " vs " + log.rightName) +
-          "</h3>" +
-          '<p class="muted-text">승자: ' +
-          escapeHtml(log.winner) +
-          "</p>" +
-          '<p class="battle-log__meta">' +
-          escapeHtml(log.story) +
-          "</p>" +
-          '<p class="battle-log__meta">' +
-          escapeHtml(log.date) +
-          "</p>" +
-          "</article>"
-        );
-      })
-      .join("");
-  }
-
-  function renderCodeBattlePage() {
-    var titleTarget = getElement("codeBattleProblemTitle");
-    var descTarget = getElement("codeBattleDescription");
-    var codeTarget = getElement("codeBattleEditor");
-    var logsTarget = getElement("codeBattleSubmissions");
-
-    if (!titleTarget || !descTarget || !codeTarget || !logsTarget) {
-      return;
-    }
-
-    titleTarget.textContent = window.__textBattleState.codeBattle.title;
-    descTarget.textContent = window.__textBattleState.codeBattle.description;
-
-    if (!codeTarget.value) {
-      codeTarget.value = window.__textBattleState.codeBattle.starterCode;
-    }
-
-    logsTarget.innerHTML = window.__textBattleState.codeBattle.submissions
-      .slice(0, 3)
-      .map(function (item) {
-        var badgeClass = item.status === "성공" ? "pill--success" : "pill--failure";
-
-        return (
-          '<article class="submit-item">' +
-          '<div class="card-header">' +
-          '<h3 class="submit-item__title">' +
-          escapeHtml(item.title) +
-          "</h3>" +
-          '<span class="pill ' +
-          badgeClass +
-          '">' +
-          escapeHtml(item.status) +
-          "</span>" +
-          "</div>" +
-          '<p class="submit-item__meta">' +
-          escapeHtml(item.language) +
-          " · " +
-          escapeHtml(item.result) +
-          "</p>" +
-          "</article>"
-        );
-      })
-      .join("");
-  }
-
-  function renderAccountPage() {
-    var statusTarget = getElement("accountStatus");
-    var emailInput = getElement("accountEmail");
-    var battleLanguage = getElement("battleLanguage");
-    var account = window.__textBattleState.account;
-
-    if (!statusTarget || !emailInput || !battleLanguage) {
-      return;
-    }
-
-    emailInput.value = account.email;
-    battleLanguage.value = account.battleLanguage;
-
-    document.querySelectorAll("[data-ui-language]").forEach(function (button) {
-      button.classList.toggle("is-active", button.getAttribute("data-ui-language") === account.uiLanguage);
-    });
-
-    document.querySelectorAll("[data-theme-option]").forEach(function (button) {
-      button.classList.toggle("is-active", button.getAttribute("data-theme-option") === account.theme);
-    });
-
-    statusTarget.innerHTML = createStatusBox(
-      account.googleConnected ? "구글 계정이 연결되어 있습니다." : "현재는 익명 계정 상태입니다.",
-      account.googleConnected ? "success" : ""
-    );
-  }
-
-  function promptCharacterData(existingCharacter) {
-    var currentName = existingCharacter ? existingCharacter.name : "";
-    var currentSummary = existingCharacter ? existingCharacter.summary : "";
-    var name = window.prompt("캐릭터 이름을 입력하세요.", currentName);
+    event.preventDefault();
 
     if (!name) {
-      return null;
+      window.alert("길드 이름을 입력하세요.");
+      return;
     }
 
-    var summary = window.prompt("짧은 설명을 입력하세요.", currentSummary);
-
-    if (!summary) {
-      return null;
+    if (createGuild(state, name)) {
+      renderApp();
     }
-
-    return {
-      name: name.trim(),
-      summary: summary.trim()
-    };
   }
 
-  function addCharacter() {
-    if (window.__textBattleState.characters.length >= window.__textBattleState.maxCharacters) {
-      window.alert("캐릭터는 최대 5개까지 추가할 수 있습니다.");
+  function handleGuildJoin(event) {
+    var state = getState();
+    var inviteCode = event.target.inviteCode.value.trim();
+
+    event.preventDefault();
+
+    if (!inviteCode) {
+      window.alert("초대 코드를 입력하세요.");
       return;
     }
 
-    var data = promptCharacterData();
-
-    if (!data) {
-      return;
+    if (joinGuild(state, inviteCode)) {
+      renderApp();
     }
-
-    updateState(function (state) {
-      state.characters.push({
-        id: state.nextCharacterId,
-        name: data.name,
-        summary: data.summary,
-        elo: 1000 + Math.floor(Math.random() * 150)
-      });
-      state.nextCharacterId += 1;
-    });
-
-    rerenderCurrentPage();
   }
 
-  function editCharacter(characterId) {
-    var character = findCharacter(characterId);
-    var data;
+  async function handleClick(event) {
+    var trigger = event.target.closest("[data-action]");
+    var state;
+    var characterId;
 
-    if (!character) {
+    if (!trigger) {
       return;
     }
 
-    data = promptCharacterData(character);
+    if (trigger.tagName === "BUTTON") {
+      event.preventDefault();
+    }
 
-    if (!data) {
+    if (trigger.dataset.action === "go-tab") {
+      setActiveTab(trigger.dataset.tab);
       return;
     }
 
-    updateState(function (state) {
-      state.characters = state.characters.map(function (item) {
-        if (item.id === characterId) {
-          return Object.assign({}, item, {
-            name: data.name,
-            summary: data.summary
-          });
-        }
-
-        return item;
-      });
-    });
-
-    rerenderCurrentPage();
-  }
-
-  function deleteCharacter(characterId) {
-    if (!window.confirm("이 캐릭터를 삭제할까요?")) {
+    if (trigger.dataset.action === "toggle-create-form") {
+      view.homeCreateOpen = !view.homeCreateOpen;
+      view.battleNotice = "";
+      renderApp();
       return;
     }
 
-    updateState(function (state) {
-      state.characters = state.characters.filter(function (item) {
-        return item.id !== characterId;
-      });
-    });
-
-    rerenderCurrentPage();
-  }
-
-  function startMockBattle() {
-    var pair = getMockBattlePair();
-    var winner;
-    var loser;
-    var story;
-
-    if (pair.length < 2 || pair[0].id === pair[1].id) {
-      window.alert("모의 배틀을 시작하려면 캐릭터가 최소 2개 필요합니다.");
+    if (trigger.dataset.action === "set-ranking-mode") {
+      view.rankingMode = trigger.dataset.mode;
+      renderApp();
       return;
     }
 
-    winner = pair[0].elo + Math.random() * 120 >= pair[1].elo + Math.random() * 120 ? pair[0] : pair[1];
-    loser = winner.id === pair[0].id ? pair[1] : pair[0];
-    story =
-      winner.name +
-      "가 초반 흐름을 읽고 " +
-      loser.name +
-      "의 빈틈을 파고들며 승기를 잡았습니다. 마지막 교전에서 Elo 차이를 뒤집는 운영이 승부를 갈랐습니다.";
-
-    updateState(function (state) {
-      state.characters = state.characters.map(function (character) {
-        if (character.id === winner.id) {
-          return Object.assign({}, character, { elo: character.elo + 14 });
-        }
-
-        if (character.id === loser.id) {
-          return Object.assign({}, character, { elo: Math.max(900, character.elo - 9) });
-        }
-
-        return character;
-      });
-
-      state.points += 3;
-      state.battleLogs.unshift({
-        id: state.nextBattleId,
-        leftName: pair[0].name,
-        rightName: pair[1].name,
-        winner: winner.name,
-        story: story,
-        date: formatToday()
-      });
-      state.nextBattleId += 1;
-      state.battleLogs = state.battleLogs.slice(0, 6);
-    });
-
-    rerenderCurrentPage();
-    window.alert(winner.name + " 승리! Elo와 기록이 갱신되었습니다.");
-  }
-
-  function runCode() {
-    var editor = getElement("codeBattleEditor");
-
-    if (!editor) {
-      return;
-    }
-
-    if (!editor.value.trim()) {
-      window.alert("코드를 입력하세요.");
-      return;
-    }
-
-    window.alert("실행 완료: 문법 검사를 통과한 것으로 처리했습니다.");
-  }
-
-  function submitCode() {
-    var editor = getElement("codeBattleEditor");
-    var isSuccess;
-
-    if (!editor) {
-      return;
-    }
-
-    isSuccess = editor.value.indexOf("function solve") > -1 && editor.value.indexOf("return") > -1;
-
-    updateState(function (state) {
-      state.codeBattle.submissions.unshift({
-        title: state.codeBattle.title,
-        status: isSuccess ? "성공" : "실패",
-        language: "JavaScript",
-        result: isSuccess ? "핵심 키워드 검사를 통과했습니다." : "solve 함수 또는 return 문이 부족합니다."
-      });
-      state.codeBattle.submissions = state.codeBattle.submissions.slice(0, 6);
-
-      if (isSuccess) {
-        state.points += 5;
+    if (trigger.dataset.action === "select-character") {
+      if (trigger.dataset.characterId) {
+        view.selectedCharacterId = trigger.dataset.characterId;
+        view.battleNotice = "";
+        renderApp();
       }
-    });
-
-    rerenderCurrentPage();
-  }
-
-  function connectGoogle() {
-    updateState(function (state) {
-      state.account.googleConnected = !state.account.googleConnected;
-    });
-
-    renderHeader();
-    renderAccountPage();
-  }
-
-  function registerAccount() {
-    var emailInput = getElement("accountEmail");
-    var passwordInput = getElement("accountPassword");
-
-    if (!emailInput || !passwordInput) {
       return;
     }
 
-    if (!emailInput.value.trim() || !passwordInput.value.trim()) {
-      window.alert("이메일과 비밀번호를 모두 입력하세요.");
+    state = getState();
+    characterId = trigger.dataset.characterId;
+
+    if (trigger.dataset.action === "delete-character") {
+      if (!window.confirm("이 캐릭터를 삭제할까요? 전적도 함께 삭제됩니다.")) {
+        return;
+      }
+      deleteCharacter(state, characterId);
+      renderApp();
       return;
     }
 
-    updateState(function (state) {
-      state.account.email = emailInput.value.trim();
-      state.points += 2;
-    });
-
-    renderHeader();
-    renderAccountPage();
-    window.alert("계정 정보가 저장되었습니다.");
-  }
-
-  function logoutAccount() {
-    updateState(function (state) {
-      state.account.email = "";
-      state.account.googleConnected = false;
-    });
-
-    renderAccountPage();
-    window.alert("로그아웃되었습니다.");
-  }
-
-  function deleteAccount() {
-    if (!window.confirm("계정 관련 로컬 데이터를 모두 삭제할까요?")) {
+    if (trigger.dataset.action === "start-solo-battle") {
+      if (view.isBattling) {
+        return;
+      }
+      view.isBattling = true;
+      view.battleNotice = "AI가 전투를 판정하고 있습니다.";
+      renderApp();
+      try {
+        await runBattle(state, characterId, "solo");
+      } finally {
+        view.isBattling = false;
+      }
+      renderApp();
       return;
     }
 
-    window.localStorage.removeItem(STORAGE_KEY);
-    window.__textBattleState = createDefaultState();
-    rerenderCurrentPage();
-    window.alert("로컬 계정 데이터가 삭제되었습니다.");
-  }
-
-  function attachHomeEvents() {
-    var addButton = getElement("addCharacterButton");
-
-    if (addButton) {
-      addButton.addEventListener("click", addCharacter);
+    if (trigger.dataset.action === "start-guild-battle") {
+      if (view.isBattling) {
+        return;
+      }
+      view.isBattling = true;
+      view.battleNotice = "AI가 전투를 판정하고 있습니다.";
+      renderApp();
+      try {
+        await runBattle(state, characterId, "guild");
+      } finally {
+        view.isBattling = false;
+      }
+      renderApp();
+      return;
     }
 
-    document.querySelectorAll("[data-edit-character]").forEach(function (button) {
-      button.addEventListener("click", function () {
-        editCharacter(Number(button.getAttribute("data-edit-character")));
-      });
-    });
-
-    document.querySelectorAll("[data-delete-character]").forEach(function (button) {
-      button.addEventListener("click", function () {
-        deleteCharacter(Number(button.getAttribute("data-delete-character")));
-      });
-    });
-  }
-
-  function attachRankingEvents() {
-    document.querySelectorAll("[data-challenge-character]").forEach(function (button) {
-      button.addEventListener("click", function () {
-        window.location.href = "./mock-battle.html";
-      });
-    });
-  }
-
-  function attachMockBattleEvents() {
-    var startButton = getElement("startMockBattleButton");
-
-    if (startButton) {
-      startButton.addEventListener("click", startMockBattle);
+    if (trigger.dataset.action === "leave-guild") {
+      if (!window.confirm("길드에서 탈퇴할까요?")) {
+        return;
+      }
+      leaveGuild(state);
+      renderApp();
     }
   }
 
-  function attachCodeBattleEvents() {
-    var runButton = getElement("runCodeButton");
-    var submitButton = getElement("submitCodeButton");
-
-    if (runButton) {
-      runButton.addEventListener("click", runCode);
+  function handleSubmit(event) {
+    if (event.target.id === "characterCreateForm") {
+      handleCreateCharacter(event);
+      return;
     }
 
-    if (submitButton) {
-      submitButton.addEventListener("click", submitCode);
-    }
-  }
-
-  function attachAccountEvents() {
-    var googleButton = getElement("googleConnectButton");
-    var registerButton = getElement("registerAccountButton");
-    var logoutButton = getElement("logoutButton");
-    var deleteButton = getElement("deleteAccountButton");
-    var battleLanguage = getElement("battleLanguage");
-
-    document.querySelectorAll("[data-ui-language]").forEach(function (button) {
-      button.addEventListener("click", function () {
-        updateState(function (state) {
-          state.account.uiLanguage = button.getAttribute("data-ui-language");
-        });
-        renderAccountPage();
-      });
-    });
-
-    document.querySelectorAll("[data-theme-option]").forEach(function (button) {
-      button.addEventListener("click", function () {
-        updateState(function (state) {
-          state.account.theme = button.getAttribute("data-theme-option");
-        });
-        renderAccountPage();
-      });
-    });
-
-    if (battleLanguage) {
-      battleLanguage.addEventListener("change", function () {
-        updateState(function (state) {
-          state.account.battleLanguage = battleLanguage.value;
-        });
-      });
+    if (event.target.id === "guildCreateForm") {
+      handleGuildCreate(event);
+      return;
     }
 
-    if (googleButton) {
-      googleButton.addEventListener("click", connectGoogle);
-    }
-
-    if (registerButton) {
-      registerButton.addEventListener("click", registerAccount);
-    }
-
-    if (logoutButton) {
-      logoutButton.addEventListener("click", logoutAccount);
-    }
-
-    if (deleteButton) {
-      deleteButton.addEventListener("click", deleteAccount);
+    if (event.target.id === "guildJoinForm") {
+      handleGuildJoin(event);
     }
   }
 
-  function rerenderCurrentPage() {
-    renderHeader();
-    renderBottomNav();
-
-    if (getPage() === "home") {
-      renderHomePage();
-      attachHomeEvents();
-    }
-
-    if (getPage() === "ranking") {
-      renderRankingPage();
-      attachRankingEvents();
-    }
-
-    if (getPage() === "mock-battle") {
-      renderMockBattlePage();
-      attachMockBattleEvents();
-    }
-
-    if (getPage() === "code-battle") {
-      renderCodeBattlePage();
-      attachCodeBattleEvents();
-    }
-
-    if (getPage() === "account") {
-      renderAccountPage();
-      attachAccountEvents();
-    }
-  }
-
-  document.addEventListener("DOMContentLoaded", function () {
-    window.__textBattleState = getState();
-    rerenderCurrentPage();
-  });
+  document.addEventListener("click", handleClick);
+  document.addEventListener("submit", handleSubmit);
+  document.addEventListener("DOMContentLoaded", renderApp);
 })();

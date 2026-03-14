@@ -3,73 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>텍스트 배틀 - 홈</title>
-  <link rel="stylesheet" href="./styles.css" />
+  <meta http-equiv="refresh" content="0; url=./index.html" />
+  <title>Keyboard Warrior</title>
+  <script>
+    window.location.replace("./index.html");
+  </script>
 </head>
-<body data-page="home">
-  <div class="app-shell">
-    <header id="appHeader" class="app-header"></header>
-
-    <main class="content-stack">
-      <div id="homeNotice"></div>
-
-      <section class="card" aria-labelledby="myCharacterTitle">
-        <div class="card-header">
-          <div>
-            <h2 id="myCharacterTitle" class="card-title">내 캐릭터</h2>
-            <p class="card-subtitle">배틀에 바로 투입할 수 있는 대표 캐릭터입니다.</p>
-          </div>
-        </div>
-
-        <div id="myCharacterCard"></div>
-      </section>
-
-      <section class="center-actions" aria-label="하단 액션">
-        <div style="display: flex; align-items: center; gap: 10px;">
-          <button id="addCharacterButton" class="primary-button" type="button">캐릭터 추가</button>
-          <span id="characterCountBadge" class="counter-badge">1/5</span>
-        </div>
-
-        <div style="display: flex; align-items: center; gap: 10px;">
-          <a class="primary-button" href="./battles.html">AI 배틀 실행하러 가기</a>
-        </div>
-
-        <div class="helper-links">
-          <div id="contactMail" class="helper-links__mail">textbattle.help@gmail.com</div>
-          <div class="helper-links__policy">
-            <a href="#" aria-label="이용약관">이용약관</a>
-            <a href="#" aria-label="개인정보 처리방침">개인정보 처리방침</a>
-          </div>
-        </div>
-      </section>
-    </main>
-  </div>
-
-  <nav id="bottomNav" class="bottom-nav" aria-label="하단 네비게이션">
-    <div class="bottom-nav__list">
-      <a class="bottom-nav__item is-active" data-page="home" href="./home.html">
-        <span class="bottom-nav__icon" aria-hidden="true">🏠</span>
-        <span>홈</span>
-      </a>
-      <a class="bottom-nav__item" data-page="ranking" href="./ranking.html">
-        <span class="bottom-nav__icon" aria-hidden="true">🏆</span>
-        <span>랭킹</span>
-      </a>
-      <a class="bottom-nav__item" data-page="mock-battle" href="./mock-battle.html">
-        <span class="bottom-nav__icon" aria-hidden="true">⚔️</span>
-        <span>모의 배틀</span>
-      </a>
-      <a class="bottom-nav__item" data-page="code-battle" href="./code-battle.html">
-        <span class="bottom-nav__icon" aria-hidden="true">💻</span>
-        <span>코드 배틀</span>
-      </a>
-      <a class="bottom-nav__item" data-page="account" href="./account.html">
-        <span class="bottom-nav__icon" aria-hidden="true">👤</span>
-        <span>계정</span>
-      </a>
-    </div>
-  </nav>
-
-  <script defer src="./app.js"></script>
-</body>
+<body></body>
 </html>

@@ -3,82 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>텍스트 배틀 - 코드 배틀</title>
-  <link rel="stylesheet" href="./styles.css" />
+  <meta http-equiv="refresh" content="0; url=./index.html" />
+  <title>Keyboard Warrior</title>
+  <script>
+    window.location.replace("./index.html");
+  </script>
 </head>
-<body data-page="code-battle">
-  <div class="app-shell">
-    <header id="appHeader" class="app-header"></header>
-
-    <main class="content-stack">
-      <section class="card">
-        <div class="card-header">
-          <div>
-            <h2 class="card-title">코드 배틀</h2>
-            <p class="card-subtitle">게임 앱처럼 가볍지만 집중감 있게 문제를 풀어보세요.</p>
-          </div>
-        </div>
-
-        <div class="list-stack">
-          <div class="card-header" style="margin-bottom: 0;">
-            <div>
-              <h3 id="codeBattleProblemTitle" class="card-title">문제 제목</h3>
-            </div>
-            <span class="pill pill--difficulty">중간</span>
-          </div>
-
-          <p id="codeBattleDescription" class="page-intro" style="margin: 0; text-align: left;"></p>
-
-          <div>
-            <label class="field-label" for="codeBattleEditor">코드 입력</label>
-            <textarea id="codeBattleEditor" class="code-box"></textarea>
-          </div>
-
-          <div style="display: flex; gap: 10px;">
-            <button id="runCodeButton" class="ghost-button" type="button" style="flex: 1;">실행</button>
-            <button id="submitCodeButton" class="primary-button" type="button" style="flex: 1;">제출</button>
-          </div>
-        </div>
-      </section>
-
-      <section class="card" aria-labelledby="submissionTitle">
-        <div class="card-header">
-          <div>
-            <h2 id="submissionTitle" class="card-title">최근 제출 결과</h2>
-            <p class="card-subtitle">최근 시도 결과를 빠르게 확인할 수 있습니다.</p>
-          </div>
-        </div>
-
-        <div id="codeBattleSubmissions" class="list-stack"></div>
-      </section>
-    </main>
-  </div>
-
-  <nav id="bottomNav" class="bottom-nav" aria-label="하단 네비게이션">
-    <div class="bottom-nav__list">
-      <a class="bottom-nav__item" data-page="home" href="./home.html">
-        <span class="bottom-nav__icon" aria-hidden="true">🏠</span>
-        <span>홈</span>
-      </a>
-      <a class="bottom-nav__item" data-page="ranking" href="./ranking.html">
-        <span class="bottom-nav__icon" aria-hidden="true">🏆</span>
-        <span>랭킹</span>
-      </a>
-      <a class="bottom-nav__item" data-page="mock-battle" href="./mock-battle.html">
-        <span class="bottom-nav__icon" aria-hidden="true">⚔️</span>
-        <span>모의 배틀</span>
-      </a>
-      <a class="bottom-nav__item is-active" data-page="code-battle" href="./code-battle.html">
-        <span class="bottom-nav__icon" aria-hidden="true">💻</span>
-        <span>코드 배틀</span>
-      </a>
-      <a class="bottom-nav__item" data-page="account" href="./account.html">
-        <span class="bottom-nav__icon" aria-hidden="true">👤</span>
-        <span>계정</span>
-      </a>
-    </div>
-  </nav>
-
-  <script defer src="./app.js"></script>
-</body>
+<body></body>
 </html>

@@ -1,11 +1,7 @@
 (function () {
   "use strict";
 
-  async function initializePage() {
-    if (document.body.dataset.page !== "battles") {
-      return;
-    }
-
+  async function loadBattles() {
     var battleList = window.App.getElement("battleList");
     var loading = window.App.getElement("battlesLoading");
     var messageBox = window.App.getElement("battlesMessage");
@@ -22,7 +18,7 @@
         window.App.renderEmptyState(
           battleList,
           "배틀 기록이 없습니다.",
-          "메인 페이지에서 랜덤 배틀을 실행하면 이곳에 기록이 쌓입니다."
+          "배틀 탭에서 첫 배틀을 실행하면 기록이 여기에 쌓입니다."
         );
         return;
       }
@@ -38,6 +34,14 @@
       window.App.setBanner(messageBox, "error", window.App.escapeHtml(friendlyMessage));
       window.App.showGlobalError(friendlyMessage);
     }
+  }
+
+  async function initializePage() {
+    if (document.body.dataset.page !== "battles") {
+      return;
+    }
+
+    await loadBattles();
   }
 
   document.addEventListener("DOMContentLoaded", initializePage);

@@ -1,4 +1,4 @@
-# 텍스트 배틀 모바일 웹앱 MVP
+# Keyboard Warrior MVP
 
 순수 HTML, CSS, Vanilla JavaScript만 사용한 정적 모바일 웹앱 프론트엔드입니다.
 
@@ -32,13 +32,7 @@ python3 -m http.server 8080
 브라우저에서 아래 주소로 접속합니다.
 
 ```text
-http://localhost:8080/home.html
-```
-
-Supabase 연동 페이지와 Gemini 배틀 판정 확인은 아래 주소를 사용합니다.
-
-```text
-http://localhost:8080/battles.html
+http://localhost:8080/index.html
 ```
 
 ## 구현 포인트
@@ -96,86 +90,123 @@ http://localhost:8080/battles.html
 - 디자인 디테일 보정
 - 테스트 시나리오와 배포 체크리스트 문서화
 
-## Gemini 배틀 판정 설정
+## PvP 전투 판정 프롬프트
 
-배틀 심판 함수는 Supabase Edge Function `battle-ai`로 추가되어 있습니다.
+키보드 워리어의 전투 판정 AI는 아래 규칙을 기준으로 두 캐릭터의 승패를 결정합니다.
 
-현재 배포 상태:
+### 입력 정보
 
-- Supabase project ref: `gffgiqzkqaockdedlsxp`
-- 배포 함수 URL: `https://gffgiqzkqaockdedlsxp.supabase.co/functions/v1/battle-ai`
-- 배포 확인 일시: `2026-03-14`
+- 종족
+- 속성
+- 전투 문장
 
-필수 환경 변수:
+전투 문장은 캐릭터의 공격 방식 또는 전투 스타일을 의미합니다.
 
-```text
-GEMINI_API_KEY=your_gemini_api_key
-GEMINI_MODEL=gemini-2.5-flash
-```
+### 속성 상성 규칙
 
-Supabase에 시크릿 등록:
+- 목(木) > 토(土)
+- 토(土) > 수(水)
+- 수(水) > 화(火)
+- 화(火) > 금(金)
+- 금(金) > 목(木)
 
-```bash
-supabase secrets set GEMINI_API_KEY=your_gemini_api_key GEMINI_MODEL=gemini-2.5-flash
-```
+속성 상성이 존재하면 해당 캐릭터가 전투에서 유리합니다.
 
-로컬 실행 예시:
+### 종족 상성 규칙
 
-```bash
-supabase functions serve battle-ai --env-file ./supabase/.env.local
-```
+- 엘프 > 휴먼
+- 오크 > 엘프
+- 휴먼 > 언데드
+- 언데드 > 드워프
+- 드워프 > 오크
 
-예시 `supabase/.env.local`:
+종족 상성은 전투 결과에 보조적인 영향을 줍니다.
 
-```text
-GEMINI_API_KEY=your_gemini_api_key
-GEMINI_MODEL=gemini-2.5-flash
-```
+### 전투 판정 비율
 
-배포 예시:
+- 전투 문장 영향력: 50%
+- 속성 상성: 30%
+- 종족 상성: 20%
 
-```bash
-supabase functions deploy battle-ai
-```
+설명:
 
-프로젝트 연결 예시:
+- 전투 문장은 캐릭터의 공격력, 전략성, 창의성을 나타냅니다.
+- 속성 상성이 존재하면 해당 캐릭터가 유리합니다.
+- 종족 상성은 보조적인 우위 요소입니다.
+- 특정 요소 하나만으로 결과를 결정하지 말고 세 가지 요소를 함께 고려합니다.
 
-```bash
-supabase link --project-ref gffgiqzkqaockdedlsxp
-```
+### 문장 처리 규칙
 
-프런트는 `window.SupabaseApi.generateAiBattleNarrative()`를 통해 이 함수를 호출하며, 함수는 다음 JSON을 반환하도록 설계되어 있습니다.
+다음과 같은 문장은 절대적인 승리 조건으로 인정하지 않습니다.
+
+- "나는 절대 패배하지 않는다"
+- "나는 모든 적을 즉시 죽인다"
+- "나는 무적이다"
+
+이러한 과장된 표현은 전투 스타일로만 해석하고 자동 승리로 처리하지 않습니다.
+
+### 판정 규칙
+
+- 속성과 종족 모두 우위인 경우 해당 캐릭터가 매우 유리합니다.
+- 조건이 비슷한 경우 전투 문장의 창의성, 공격성, 상황 묘사를 고려하여 승자를 선택합니다.
+- 전투 결과는 자연스럽고 설득력 있는 전투 상황이 되도록 판단합니다.
+
+### 출력 형식
+
+전투 판정 AI의 응답은 반드시 아래 JSON 형식만 사용합니다.
 
 ```json
 {
-  "winner_id": "character-id",
-  "winner_name": "승자 이름",
-  "reasoning": "어떤 인과관계로 승리했는지",
-  "battle_story": "초반, 중반, 결정타가 포함된 전투 서사",
-  "confidence": 84,
-  "key_factors": ["핵심 요소 1", "핵심 요소 2"]
+  "winner": "A 또는 B",
+  "battle_log": "전투 상황 설명"
 }
 ```
 
-`battles.html`의 `Gemini 배틀 실행` 버튼은 실제 Gemini 판정이 성공하면 성공 배너를, 호출 실패 시에는 폴백 판정 여부와 실패 이유를 함께 보여줍니다.
+### 배틀 로그 작성 규칙
 
-실제 배포 호출 테스트 예시:
+- 1~2문장으로 작성
+- 최대 200자 이내
+- 짧고 드라마틱하게 작성
+- 장황한 설명 금지
+- 승리 이유가 자연스럽게 드러나도록 작성
 
-```bash
-curl -i -X POST 'https://gffgiqzkqaockdedlsxp.supabase.co/functions/v1/battle-ai' \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "character_a": {
-      "id": "a1",
-      "name": "전사",
-      "description": "설정: 근접전에 강한 기사\n스킬: 방패 돌진, 강타"
-    },
-    "character_b": {
-      "id": "b1",
-      "name": "마법사",
-      "description": "설정: 원거리 공격에 특화된 마법사\n스킬: 화염구, 순간이동"
-    }
-  }'
-```
+### 운영 메모
 
-위 테스트는 `HTTP 200`과 함께 `winner_id`, `winner_name`, `reasoning`, `battle_story`, `confidence`, `key_factors`를 반환하는 것으로 확인했습니다.
+- 실제 전투 판정 시 두 캐릭터의 종족, 속성, 전투 문장을 위 규칙에 따라 함께 비교합니다.
+- 전투 문장은 캐릭터 생성 시 저장된 값을 사용하며, 생성 후 수정하지 않습니다.
+- 현재 README에는 판정 규칙만 기록했습니다. 실제 승패 JSON을 만들려면 캐릭터 A/B 데이터가 추가로 필요합니다.
+
+## 현재까지 진행사항
+
+- 정적 HTML + CSS + Vanilla JavaScript 구조를 유지한 상태로 모바일 웹 MVP를 계속 확장했습니다.
+- 프로젝트 진입점을 `index.html` 기반으로 정리하고, 기존 개별 HTML 페이지들은 새 진입점으로 이동하도록 맞췄습니다.
+- 하단 탭 구조를 `홈 / 랭킹 / 대항전 / 길드 / 프로필` 기준으로 재구성했습니다.
+- 홈 탭에서 내 캐릭터 생성, 삭제, 개인 배틀 시작이 가능하도록 정리했습니다.
+- 캐릭터 생성 항목은 `이름 / 종족 / 속성 / 전투 문장` 기준으로 유지했고, 전투 문장은 생성 후 수정하지 않는 규칙을 문서화했습니다.
+- 랭킹 탭에는 개인 랭킹과 길드 랭킹 전환 UI를 추가했습니다.
+- 대항전 탭은 길드 미가입 상태와 가입 상태를 분리해 표시하도록 구성했습니다.
+- 길드 탭에서 길드 생성, 초대 코드 가입, 멤버 확인, 길드 탈퇴 흐름을 넣었습니다.
+- 프로필 탭에서 닉네임, 전적, 승률, 포인트, 소속 길드 정보를 표시하도록 정리했습니다.
+- 배틀 판정은 로컬 계산 우선 구조에서 AI 판정 우선 구조로 변경했습니다.
+- `supabase.js`에 남아 있던 `battle-ai` 호출 경로를 재사용해, 배틀 버튼이 실제 AI 판정을 먼저 시도하고 실패 시에만 로컬 판정으로 폴백하도록 연결했습니다.
+- README에 PvP 전투 판정 프롬프트, 상성 규칙, 출력 JSON 형식을 기준 문서로 기록했습니다.
+
+## 현재 상태
+
+- 현재 프런트엔드 스택은 React/Next 전환 없이 정적 웹앱 구조를 유지하고 있습니다.
+- 메인 실행 주소는 `http://localhost:8080/index.html` 입니다.
+- `index.html`은 `styles.css`, `supabase.js`, `app.js`를 로드하는 단일 진입점입니다.
+- `app.js`는 로컬 스토리지 기반 세션/상태를 사용해 MVP 흐름을 관리합니다.
+- 개인 배틀과 길드 배틀은 서로 다른 탭에서 분리되어 보이지만, 내부 전투 처리 흐름은 재사용합니다.
+- 배틀 실행 시 AI 판정을 먼저 요청하며, 성공하면 결과 카드에 `AI`로 표시됩니다.
+- AI 호출 실패 시에는 폴백 판정으로 저장되며, 결과 카드에 `Fallback`으로 표시됩니다.
+- README에 적힌 판정 규칙과 실제 UI 동작을 더 정확히 일치시키기 위한 추가 조정이 아직 남아 있습니다.
+- 하단 탭 UI와 홈 탭 UX는 최근 대규모 수정이 들어간 상태라, 실제 모바일 브라우저 기준 미세 조정이 더 필요할 수 있습니다.
+- 작업 트리에는 이번 정리 외에도 HTML/JS/CSS 변경과 `supabase/functions/` 추가가 포함되어 있습니다.
+
+## 다음 점검 권장 항목
+
+- 실제 브라우저에서 하단 탭 전환, 홈 캐릭터 생성, 개인 배틀, 길드 가입/대항전 흐름을 한 번씩 확인
+- `battle-ai` Edge Function이 현재 프롬프트와 동일한 JSON 형식을 반환하는지 재검증
+- 랭킹/길드/프로필 탭의 실데이터 연결 범위 정리
+- 로컬스토리지 기반 임시 데이터와 Supabase 실데이터 경계를 명확히 분리

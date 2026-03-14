@@ -3,13 +3,15 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>텍스트 배틀로 이동 중</title>
-  <meta http-equiv="refresh" content="0; url=./home.html" />
-  <script>
-    window.location.replace("./home.html");
-  </script>
+  <meta name="theme-color" content="#020617" />
+  <title>Keyboard Warrior</title>
+  <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
-  <p><a href="./home.html">텍스트 배틀 홈으로 이동</a></p>
+  <div id="app"></div>
+  <noscript>Keyboard Warrior를 이용하려면 JavaScript를 활성화하세요.</noscript>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script defer src="./supabase.js"></script>
+  <script defer src="./app.js"></script>
 </body>
 </html>

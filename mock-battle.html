@@ -3,67 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>텍스트 배틀 - 모의 배틀</title>
-  <link rel="stylesheet" href="./styles.css" />
+  <meta http-equiv="refresh" content="0; url=./index.html" />
+  <title>Keyboard Warrior</title>
+  <script>
+    window.location.replace("./index.html");
+  </script>
 </head>
-<body data-page="mock-battle">
-  <div class="app-shell">
-    <header id="appHeader" class="app-header"></header>
-
-    <main class="content-stack">
-      <section class="card">
-        <div class="card-header">
-          <div>
-            <h2 class="card-title">모의 배틀</h2>
-            <p class="card-subtitle">캐릭터끼리 부담 없이 전투 흐름을 시험해보세요.</p>
-          </div>
-        </div>
-
-        <div id="mockBattleCompare" class="compare-grid"></div>
-
-        <div class="center-actions" style="margin-top: 16px;">
-          <button id="startMockBattleButton" class="primary-button" type="button">배틀 시작</button>
-        </div>
-      </section>
-
-      <section class="card" aria-labelledby="mockLogTitle">
-        <div class="card-header">
-          <div>
-            <h2 id="mockLogTitle" class="card-title">최근 모의 배틀</h2>
-            <p class="card-subtitle">최근 전투 스토리와 승자 기록</p>
-          </div>
-        </div>
-
-        <div id="mockBattleLogs" class="list-stack"></div>
-      </section>
-    </main>
-  </div>
-
-  <nav id="bottomNav" class="bottom-nav" aria-label="하단 네비게이션">
-    <div class="bottom-nav__list">
-      <a class="bottom-nav__item" data-page="home" href="./home.html">
-        <span class="bottom-nav__icon" aria-hidden="true">🏠</span>
-        <span>홈</span>
-      </a>
-      <a class="bottom-nav__item" data-page="ranking" href="./ranking.html">
-        <span class="bottom-nav__icon" aria-hidden="true">🏆</span>
-        <span>랭킹</span>
-      </a>
-      <a class="bottom-nav__item is-active" data-page="mock-battle" href="./mock-battle.html">
-        <span class="bottom-nav__icon" aria-hidden="true">⚔️</span>
-        <span>모의 배틀</span>
-      </a>
-      <a class="bottom-nav__item" data-page="code-battle" href="./code-battle.html">
-        <span class="bottom-nav__icon" aria-hidden="true">💻</span>
-        <span>코드 배틀</span>
-      </a>
-      <a class="bottom-nav__item" data-page="account" href="./account.html">
-        <span class="bottom-nav__icon" aria-hidden="true">👤</span>
-        <span>계정</span>
-      </a>
-    </div>
-  </nav>
-
-  <script defer src="./app.js"></script>
-</body>
+<body></body>
 </html>

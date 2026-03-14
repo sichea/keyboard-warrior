@@ -3,112 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>캐릭터 만들기 | Plan9 Text Battle MVP</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link
-    href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;700&family=Space+Grotesk:wght@500;700&display=swap"
-    rel="stylesheet"
-  />
-  <link rel="stylesheet" href="./styles.css" />
+  <meta http-equiv="refresh" content="0; url=./index.html" />
+  <title>Keyboard Warrior</title>
+  <script>
+    window.location.replace("./index.html");
+  </script>
 </head>
-<body data-page="create">
-  <div class="page-shell">
-    <div id="siteHeader"></div>
-
-    <header class="page-title">
-      <p class="eyebrow">CHARACTER CREATOR</p>
-      <h1>캐릭터 만들기</h1>
-      <p>
-        Supabase Storage에 이미지를 올리고, characters 테이블에 캐릭터 정보를 저장합니다.
-      </p>
-    </header>
-
-    <main class="page-card card">
-      <div class="page-header">
-        <div>
-          <p class="section-header__eyebrow">FORM</p>
-          <h2>새 캐릭터 등록</h2>
-        </div>
-      </div>
-
-      <div id="createMessage"></div>
-      <div id="createUserSummary"></div>
-
-      <div class="form-layout">
-        <section class="form-panel">
-          <form id="characterForm" class="form-grid">
-            <div class="form-field">
-              <label for="name">캐릭터 이름</label>
-              <input id="name" name="name" type="text" maxlength="30" required />
-            </div>
-
-            <div class="form-field">
-              <div class="field-row">
-                <label for="settings">캐릭터 설정</label>
-                <span id="settingsCounter" class="helper-text">0 / 100</span>
-              </div>
-              <textarea
-                id="settings"
-                name="settings"
-                maxlength="100"
-                required
-                aria-describedby="settingsHelp"
-              ></textarea>
-              <p id="settingsHelp" class="helper-text">
-                캐릭터 설정은 최대 100자까지만 입력할 수 있습니다.
-              </p>
-            </div>
-
-            <div class="form-field">
-              <label for="skills">캐릭터 스킬</label>
-              <textarea id="skills" name="skills" maxlength="180" aria-describedby="skillsHelp"></textarea>
-              <p id="skillsHelp" class="helper-text">
-                쉼표 또는 줄바꿈으로 스킬을 구분하세요. 예: 돌진, 반격, 연막
-              </p>
-            </div>
-
-            <div class="form-field">
-              <label for="image">캐릭터 이미지</label>
-              <input id="image" name="image" type="file" accept="image/*" />
-              <p class="helper-text">
-                `image/*` 파일만 업로드할 수 있으며, 브라우저에서 최대 512x512로 줄인 뒤
-                150KB 이하를 목표로 압축을 시도합니다.
-              </p>
-            </div>
-
-            <button id="submitButton" class="button" type="submit">캐릭터 저장</button>
-          </form>
-        </section>
-
-        <aside class="story-panel">
-          <div class="preview-box">
-            <img
-              id="imagePreview"
-              src=""
-              alt="업로드 이미지 미리보기"
-            />
-          </div>
-          <h3>미리보기</h3>
-          <p class="helper-text">
-            이미지를 선택하지 않으면 기본 플레이스홀더 이미지가 사용됩니다.
-          </p>
-          <ul class="helper-list">
-            <li>로그인한 사용자 기준으로 캐릭터는 최대 5개까지 만들 수 있습니다.</li>
-            <li>업로드 전에 Canvas로 최대 512x512 크기로 리사이즈합니다.</li>
-            <li>가능하면 WebP, 실패하면 JPEG로 압축해 150KB 이하를 목표로 저장합니다.</li>
-            <li>성공 시 Supabase 테이블에 바로 반영됩니다.</li>
-          </ul>
-        </aside>
-      </div>
-    </main>
-  </div>
-
-  <div id="globalError" class="global-error" hidden></div>
-
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script defer src="./supabase.js"></script>
-  <script defer src="./app.js"></script>
-  <script defer src="./create.js"></script>
-</body>
+<body></body>
 </html>
