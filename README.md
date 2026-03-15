@@ -9,6 +9,7 @@
 - `app.js`
 - `supabase.js`
 - `supabase/functions/battle-ai/index.ts`
+- `supabase/functions/telegram-auth/index.ts`
 - `README.md`
 
 보조 HTML 파일들은 기존 경로 호환용으로 남아 있으며, 현재는 모두 `index.html`로 리다이렉트됩니다.
@@ -71,6 +72,7 @@ http://localhost:8080/index.html
 - 프로필 탭에 닉네임, 전적, 승률, 포인트, 소속 길드 정보 표시 추가
 - 로컬 스토리지 기반 세션/상태 관리 추가
 - Supabase 프로젝트 `gffgiqzkqaockdedlsxp`에 `battle-ai` Edge Function 배포 완료
+- Telegram WebApp `initData` 검증용 `telegram-auth` Edge Function 추가
 - Gemini API 키를 Supabase secret으로 등록하고 배포 환경에서 실 호출 확인 완료
 - 배포 함수 URL `https://gffgiqzkqaockdedlsxp.supabase.co/functions/v1/battle-ai` 응답 확인 완료
 - 현재 메인 배틀 버튼이 AI 판정을 먼저 호출하도록 연결
@@ -88,6 +90,7 @@ http://localhost:8080/index.html
 - 배포 주소와 anon key를 `.example` 파일 또는 별도 설정 가이드로 분리
 - 랭킹 필터와 배틀 검색/정렬 기능 추가
 - 계정 연동을 실제 Supabase Auth 또는 외부 로그인과 연결
+- `telegram-auth` 배포용 `TELEGRAM_BOT_TOKEN` secret 등록
 - 디자인 디테일 보정
 - 테스트 시나리오와 배포 체크리스트 문서화
 
@@ -166,9 +169,8 @@ http://localhost:8080/index.html
 ### 배틀 로그 작성 규칙
 
 - 1~2문장으로 작성
-- 최대 200자 이내
-- 짧고 드라마틱하게 작성
-- 장황한 설명 금지
+- 최대 400자 이내
+- 드라마틱하게 작성
 - 승리 이유가 자연스럽게 드러나도록 작성
 
 ### 운영 메모

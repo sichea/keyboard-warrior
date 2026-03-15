@@ -1,2 +1,5 @@
 [functions.battle-ai]
 verify_jwt = false
+
+[functions.telegram-auth]
+verify_jwt = false

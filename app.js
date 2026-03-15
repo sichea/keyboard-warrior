@@ -26,7 +26,10 @@
     battleResultId: null,
     homeCreateOpen: false,
     isBattling: false,
-    battleNotice: ""
+    battleNotice: "",
+    remotePersonalRanking: [],
+    remotePersonalRankingLoaded: false,
+    remoteStatus: ""
   };
 
   function createId(prefix) {
@@ -62,26 +65,109 @@
     return String(text || "").slice(0, length);
   }
 
+  function getTelegramWebAppUser() {
+    var telegram = window.Telegram;
+    var webApp;
+    var user;
+
+    if (!telegram || !telegram.WebApp) {
+      return null;
+    }
+
+    webApp = telegram.WebApp;
+
+    try {
+      if (typeof webApp.ready === "function") {
+        webApp.ready();
+      }
+      if (typeof webApp.expand === "function") {
+        webApp.expand();
+      }
+    } catch (error) {
+      console.warn("Telegram WebApp init failed:", error);
+    }
+
+    user = webApp.initDataUnsafe && webApp.initDataUnsafe.user;
+
+    if (!user || !user.id) {
+      return null;
+    }
+
+    return {
+      init_data: String(webApp.initData || ""),
+      telegram_id: String(user.id),
+      nickname: String(
+        user.username ||
+        [user.first_name, user.last_name].filter(Boolean).join(" ") ||
+        ""
+      ).trim(),
+      first_name: String(user.first_name || "").trim(),
+      last_name: String(user.last_name || "").trim(),
+      username: String(user.username || "").trim()
+    };
+  }
+
   function createSession() {
     var session = readJson(SESSION_KEY);
-    var nickname;
+    var telegramUser = getTelegramWebAppUser();
+
+    if (telegramUser && telegramUser.telegram_id) {
+      session = Object.assign({}, session || {}, telegramUser, {
+        userId: "tg-" + telegramUser.telegram_id,
+        nickname: telegramUser.nickname || "플레이어" + telegramUser.telegram_id.slice(-4)
+      });
+
+      writeJson(SESSION_KEY, session);
+      return session;
+    }
 
     if (session && session.userId && session.nickname) {
       return session;
     }
 
-    nickname = String(window.prompt("사용할 닉네임을 입력하세요.") || "").trim();
-
-    if (!nickname) {
-      nickname = "플레이어" + Math.floor(Math.random() * 9000 + 1000);
-    }
-
     session = {
       userId: createId("user"),
-      nickname: nickname
+      nickname: "게스트" + Math.floor(Math.random() * 9000 + 1000),
+      isGuest: true
     };
 
     writeJson(SESSION_KEY, session);
+    return session;
+  }
+
+  function saveSession(session) {
+    writeJson(SESSION_KEY, session);
+  }
+
+  async function verifyTelegramSession() {
+    var session = readJson(SESSION_KEY);
+    var telegramUser = getTelegramWebAppUser();
+    var verified;
+
+    if (!telegramUser || !telegramUser.init_data) {
+      return null;
+    }
+
+    if (
+      session &&
+      session.telegram_verified &&
+      session.telegram_id === telegramUser.telegram_id &&
+      session.init_data === telegramUser.init_data
+    ) {
+      return session;
+    }
+
+    if (!window.SupabaseApi || typeof window.SupabaseApi.verifyTelegramWebAppData !== "function") {
+      return null;
+    }
+
+    verified = await window.SupabaseApi.verifyTelegramWebAppData(telegramUser.init_data);
+    session = Object.assign({}, session || {}, telegramUser, verified, {
+      userId: "tg-" + verified.telegram_id,
+      nickname: verified.nickname || telegramUser.nickname || "플레이어" + verified.telegram_id.slice(-4),
+      telegram_verified: true
+    });
+    saveSession(session);
     return session;
   }
 
@@ -156,6 +242,7 @@
         {
           id: guildA,
           name: "Azure Fang",
+          ownerUserId: users[1].id,
           score: 120,
           inviteCode: "FANG-1024",
           createdAt: nowIso()
@@ -163,6 +250,7 @@
         {
           id: guildB,
           name: "Crimson Howl",
+          ownerUserId: users[3].id,
           score: 95,
           inviteCode: "HOWL-2048",
           createdAt: nowIso()
@@ -189,6 +277,33 @@
     );
   }
 
+  function getGuildOwnerUserId(state, guildId) {
+    var guild = getGuildById(state, guildId);
+    var firstMember;
+
+    if (guild && guild.ownerUserId) {
+      return guild.ownerUserId;
+    }
+
+    firstMember = state.guildMembers.find(function (member) {
+      return member.guildId === guildId;
+    });
+
+    return firstMember ? firstMember.userId : null;
+  }
+
+  function pruneOrphanGuilds(state) {
+    var activeGuildIds = {};
+
+    state.guildMembers.forEach(function (member) {
+      activeGuildIds[member.guildId] = true;
+    });
+
+    state.guilds = state.guilds.filter(function (guild) {
+      return activeGuildIds[guild.id];
+    });
+  }
+
   function getState() {
     var session = createSession();
     var saved = readJson(APP_STATE_KEY);
@@ -210,6 +325,7 @@
 
     state.userId = session.userId;
     state.version = STATE_VERSION;
+    pruneOrphanGuilds(state);
     saveState(state);
     return state;
   }
@@ -261,15 +377,27 @@
     return guildId ? getGuildById(state, guildId) : null;
   }
 
+  function isGuildOwner(state, userId, guildId) {
+    return getGuildOwnerUserId(state, guildId) === userId;
+  }
+
   function getGuildMembers(state, guildId) {
     return state.guildMembers
       .filter(function (member) {
         return member.guildId === guildId;
       })
       .map(function (member) {
-        return getUserById(state, member.userId);
-      })
-      .filter(Boolean);
+        var user = getUserById(state, member.userId);
+
+        if (user) {
+          return user;
+        }
+
+        return {
+          id: member.userId,
+          nickname: member.nickname || "알 수 없음"
+        };
+      });
   }
 
   function getCharacterTotalBattles(character) {
@@ -300,6 +428,10 @@
   }
 
   function getPersonalRanking(state) {
+    if (view.remotePersonalRankingLoaded) {
+      return view.remotePersonalRanking.slice();
+    }
+
     return state.characters
       .slice()
       .sort(function (a, b) {
@@ -312,6 +444,253 @@
           user: getUserById(state, character.userId)
         };
       });
+  }
+
+  function hasRemoteApi() {
+    return !!(
+      window.SupabaseApi &&
+      typeof window.SupabaseApi.hasValidConfig === "function" &&
+      window.SupabaseApi.hasValidConfig()
+    );
+  }
+
+  function buildCharacterDescription(character) {
+    return [
+      "종족: " + (character.race || "미설정"),
+      "속성: " + (character.element || "미설정"),
+      "전투 문장: " + (character.battleText || "")
+    ].join("\n");
+  }
+
+  function normalizeRemoteCharacter(character) {
+    var description = String(character.description || "");
+    var raceMatch = description.match(/종족:\s*([^\n]+)/);
+    var elementMatch = description.match(/속성:\s*([^\n]+)/);
+    var battleTextMatch = description.match(/전투 문장:\s*([^\n]+)/);
+
+    return {
+      id: character.id,
+      remoteId: character.id,
+      userId: character.user_id || "",
+      remoteUserId: character.user_id || "",
+      nickname: character.nickname || "",
+      name: character.name || "알 수 없음",
+      race: raceMatch ? raceMatch[1].trim() : "미설정",
+      element: elementMatch ? elementMatch[1].trim() : "미설정",
+      battleText: battleTextMatch ? battleTextMatch[1].trim() : description.trim(),
+      wins: Number(character.wins || 0),
+      losses: Number(character.losses || 0),
+      draws: Number(character.draws || 0),
+      createdAt: character.created_at || nowIso()
+    };
+  }
+
+  function normalizeRemoteGuild(guild, remoteCurrentUserId, localUserId) {
+    return {
+      id: guild.id,
+      name: guild.name || "이름 없는 길드",
+      ownerUserId: guild.owner_user_id === remoteCurrentUserId ? localUserId : guild.owner_user_id,
+      remoteOwnerUserId: guild.owner_user_id || "",
+      score: Number(guild.score || 0),
+      inviteCode: guild.invite_code || "",
+      createdAt: guild.created_at || nowIso()
+    };
+  }
+
+  function normalizeRemoteGuildMember(member, remoteCurrentUserId, localUserId) {
+    return {
+      guildId: member.guild_id,
+      userId: member.user_id === remoteCurrentUserId ? localUserId : member.user_id,
+      remoteUserId: member.user_id || "",
+      nickname: member.nickname || "알 수 없음",
+      joinedAt: member.joined_at || nowIso()
+    };
+  }
+
+  function applyRemoteCharacterToLocal(localCharacter, remoteCharacter, localUserId) {
+    localCharacter.remoteId = remoteCharacter.remoteId || remoteCharacter.id;
+    localCharacter.remoteUserId = remoteCharacter.remoteUserId || remoteCharacter.userId || "";
+    localCharacter.userId = localUserId || localCharacter.userId;
+    localCharacter.name = remoteCharacter.name;
+    localCharacter.race = remoteCharacter.race;
+    localCharacter.element = remoteCharacter.element;
+    localCharacter.battleText = remoteCharacter.battleText;
+    localCharacter.wins = Number(remoteCharacter.wins || 0);
+    localCharacter.losses = Number(remoteCharacter.losses || 0);
+    localCharacter.draws = Number(remoteCharacter.draws || 0);
+    localCharacter.createdAt = remoteCharacter.createdAt || localCharacter.createdAt;
+  }
+
+  function findMatchingLocalCharacter(state, remoteCharacter) {
+    return state.characters.find(function (character) {
+      return (
+        character.remoteId === remoteCharacter.remoteId ||
+        (
+          character.userId === state.userId &&
+          character.name === remoteCharacter.name &&
+          character.battleText === remoteCharacter.battleText
+        )
+      );
+    }) || null;
+  }
+
+  function createRemoteRankingEntries(characters) {
+    return characters
+      .map(normalizeRemoteCharacter)
+      .sort(function (a, b) {
+        return getScore(b) - getScore(a) || Number(b.wins || 0) - Number(a.wins || 0);
+      })
+      .map(function (character, index) {
+        return {
+          rank: index + 1,
+          character: character,
+          user: { nickname: character.nickname || "알 수 없음" }
+        };
+      });
+  }
+
+  async function ensureRemoteUserSession() {
+    var session;
+    var user;
+
+    if (!hasRemoteApi()) {
+      throw new Error("Supabase 설정이 없어 원격 데이터를 사용할 수 없습니다.");
+    }
+
+    session = createSession();
+    user = await window.SupabaseApi.ensureUserRecord(session);
+    session.remoteUserId = user.id;
+    saveSession(session);
+    return {
+      session: session,
+      user: user
+    };
+  }
+
+  async function syncLocalCharacterToRemote(localCharacter, state) {
+    var context;
+    var remoteCharacters;
+    var matchedCharacter;
+    var remoteCharacter;
+
+    if (localCharacter.remoteId) {
+      return localCharacter.remoteId;
+    }
+
+    context = await ensureRemoteUserSession();
+    remoteCharacters = await window.SupabaseApi.fetchMyCharacters(context.user.id);
+    matchedCharacter = remoteCharacters
+      .map(normalizeRemoteCharacter)
+      .find(function (character) {
+        return character.name === localCharacter.name && character.battleText === localCharacter.battleText;
+      }) || null;
+
+    if (matchedCharacter) {
+      localCharacter.remoteId = matchedCharacter.remoteId;
+      localCharacter.remoteUserId = context.user.id;
+      localCharacter.wins = Number(matchedCharacter.wins || 0);
+      localCharacter.losses = Number(matchedCharacter.losses || 0);
+      localCharacter.draws = Number(matchedCharacter.draws || 0);
+      localCharacter.createdAt = matchedCharacter.createdAt || localCharacter.createdAt;
+      if (state) {
+        saveState(state);
+      }
+      return matchedCharacter.remoteId;
+    }
+
+    remoteCharacter = await window.SupabaseApi.createCharacter({
+      user_id: context.user.id,
+      nickname: context.user.nickname,
+      name: localCharacter.name,
+      description: buildCharacterDescription(localCharacter)
+    });
+
+    localCharacter.remoteId = remoteCharacter.id;
+    localCharacter.remoteUserId = context.user.id;
+    localCharacter.wins = Number(remoteCharacter.wins || localCharacter.wins || 0);
+    localCharacter.losses = Number(remoteCharacter.losses || localCharacter.losses || 0);
+    localCharacter.draws = Number(remoteCharacter.draws || localCharacter.draws || 0);
+    localCharacter.createdAt = remoteCharacter.created_at || localCharacter.createdAt;
+    if (state) {
+      saveState(state);
+    }
+    return remoteCharacter.id;
+  }
+
+  async function syncRemoteCharactersIntoState(state) {
+    var context;
+    var remoteCharacters;
+
+    if (!hasRemoteApi()) {
+      return;
+    }
+
+    context = await ensureRemoteUserSession();
+    remoteCharacters = await window.SupabaseApi.fetchCharactersForRanking();
+
+    remoteCharacters.map(normalizeRemoteCharacter).forEach(function (remoteCharacter) {
+      var localCharacter = findMatchingLocalCharacter(state, remoteCharacter);
+      var localUserId = remoteCharacter.remoteUserId === context.user.id ? state.userId : remoteCharacter.remoteUserId;
+
+      if (localCharacter) {
+        applyRemoteCharacterToLocal(localCharacter, remoteCharacter, localUserId);
+        return;
+      }
+
+      state.characters.unshift({
+        id: createId("char"),
+        remoteId: remoteCharacter.remoteId,
+        remoteUserId: remoteCharacter.remoteUserId,
+        userId: localUserId,
+        nickname: remoteCharacter.nickname,
+        name: remoteCharacter.name,
+        race: remoteCharacter.race,
+        element: remoteCharacter.element,
+        battleText: remoteCharacter.battleText,
+        wins: remoteCharacter.wins,
+        losses: remoteCharacter.losses,
+        draws: remoteCharacter.draws,
+        createdAt: remoteCharacter.createdAt
+      });
+    });
+
+    saveState(state);
+  }
+
+  async function syncRemoteGuildsIntoState(state) {
+    var context;
+    var snapshot;
+
+    if (!hasRemoteApi()) {
+      return;
+    }
+
+    context = await ensureRemoteUserSession();
+    snapshot = await window.SupabaseApi.fetchGuildSnapshot();
+    state.guilds = (snapshot.guilds || []).map(function (guild) {
+      return normalizeRemoteGuild(guild, context.user.id, state.userId);
+    });
+    state.guildMembers = (snapshot.guildMembers || []).map(function (member) {
+      return normalizeRemoteGuildMember(member, context.user.id, state.userId);
+    });
+    pruneOrphanGuilds(state);
+    saveState(state);
+  }
+
+  async function loadRemotePersonalRanking() {
+    var characters;
+
+    if (!hasRemoteApi()) {
+      view.remotePersonalRanking = [];
+      view.remotePersonalRankingLoaded = false;
+      view.remoteStatus = "";
+      return;
+    }
+
+    characters = await window.SupabaseApi.fetchCharactersForRanking();
+    view.remotePersonalRanking = createRemoteRankingEntries(characters);
+    view.remotePersonalRankingLoaded = true;
+    view.remoteStatus = "";
   }
 
   function getGuildRanking(state) {
@@ -402,7 +781,7 @@
     return {
       winner: winner,
       loser: winner.id === characterA.id ? characterB : characterA,
-      battleLog: String(result.battle_log || "").trim().slice(0, 200),
+      battleLog: String(result.battle_log || "").trim().slice(0, 400),
       source: "ai"
     };
   }
@@ -497,6 +876,10 @@
       return false;
     }
 
+    if (battleType === "solo" && hasRemoteApi()) {
+      return runRemoteSoloBattle(state, playerCharacter);
+    }
+
     if (battleType === "guild") {
       playerGuildId = getGuildIdByUser(state, state.userId);
       if (!playerGuildId) {
@@ -565,6 +948,13 @@
         var winnerGuild = getGuildById(state, winnerGuildId);
         if (winnerGuild) {
           winnerGuild.score = Number(winnerGuild.score || 0) + GUILD_WIN_SCORE;
+          if (hasRemoteApi()) {
+            try {
+              await window.SupabaseApi.updateGuildScore(winnerGuild.id, Number(winnerGuild.score || 0));
+            } catch (error) {
+              console.warn("Guild score sync failed:", error);
+            }
+          }
         }
       }
     }
@@ -574,6 +964,9 @@
       battleType: battleType,
       player1CharacterId: playerCharacter.id,
       player2CharacterId: opponentCharacter.id,
+      opponentName: opponentCharacter.name,
+      opponentRace: opponentCharacter.race,
+      opponentElement: opponentCharacter.element,
       winnerCharacterId: decision.winner ? decision.winner.id : null,
       battleLog: decision.battleLog || buildBattleLog(playerCharacter, opponentCharacter, outcome, battleType),
       source: decision.source || "fallback",
@@ -584,6 +977,167 @@
     view.selectedCharacterId = playerCharacter.id;
     view.battleResultId = battle.id;
     saveState(state);
+    if (hasRemoteApi() && !playerCharacter.remoteId) {
+      try {
+        await syncLocalCharacterToRemote(playerCharacter, state);
+      } catch (error) {
+        console.warn("Player character sync failed:", error);
+      }
+    }
+    if (hasRemoteApi() && playerCharacter.remoteId && opponentCharacter.remoteId) {
+      try {
+        var remoteWinnerId = outcome === "win"
+          ? playerCharacter.remoteId
+          : outcome === "loss"
+          ? opponentCharacter.remoteId
+          : null;
+        var remoteBattleLog = battle.battleLog;
+        var remoteBattle = await window.SupabaseApi.createBattle({
+          character_a_id: playerCharacter.remoteId,
+          character_b_id: opponentCharacter.remoteId,
+          winner_id: remoteWinnerId,
+          story: remoteBattleLog
+        });
+
+        battle.remoteBattleId = remoteBattle.id || null;
+        battle.id = remoteBattle.id || battle.id;
+        view.battleResultId = battle.id;
+
+        await Promise.all([
+          window.SupabaseApi.updateCharacterRecord(
+            playerCharacter.remoteId,
+            Number(playerCharacter.wins || 0),
+            Number(playerCharacter.losses || 0),
+            Number(playerCharacter.draws || 0)
+          ),
+          window.SupabaseApi.updateCharacterRecord(
+            opponentCharacter.remoteId,
+            Number(opponentCharacter.wins || 0),
+            Number(opponentCharacter.losses || 0),
+            Number(opponentCharacter.draws || 0)
+          )
+        ]);
+
+        await loadRemotePersonalRanking();
+
+        if (battleType === "guild") {
+          await syncRemoteGuildsIntoState(state);
+        }
+
+        saveState(state);
+      } catch (error) {
+        console.warn("Battle sync failed:", error);
+      }
+    }
+    return true;
+  }
+
+  async function runRemoteSoloBattle(state, playerCharacter) {
+    var currentUser = getCurrentUser(state);
+    var context = await ensureRemoteUserSession();
+    var remoteCharacters;
+    var candidates;
+    var opponentCharacter;
+    var decision;
+    var outcome;
+    var opponentOutcome;
+    var remoteWinnerId;
+    var battleLog;
+    var battleRecord;
+
+    await syncLocalCharacterToRemote(playerCharacter, state);
+    remoteCharacters = await window.SupabaseApi.fetchCharactersForRanking();
+    candidates = remoteCharacters
+      .map(normalizeRemoteCharacter)
+      .filter(function (character) {
+        return character.remoteId !== playerCharacter.remoteId && character.remoteUserId !== context.user.id;
+      });
+
+    if (!candidates.length) {
+      throw new Error("온라인 개인 배틀을 진행할 상대 캐릭터가 없습니다.");
+    }
+
+    opponentCharacter = candidates[Math.floor(Math.random() * candidates.length)];
+
+    try {
+      decision = await judgeBattleWithAi(playerCharacter, opponentCharacter);
+      view.battleNotice = "AI 판정이 반영되었습니다.";
+    } catch (error) {
+      console.warn("AI battle fallback:", error);
+      decision = createFallbackBattleDecision(playerCharacter, opponentCharacter, "solo");
+      view.battleNotice = "AI 호출이 실패해 로컬 판정으로 처리되었습니다.";
+    }
+
+    if (!decision.winner) {
+      outcome = "draw";
+      opponentOutcome = "draw";
+    } else if (decision.winner.id === playerCharacter.id) {
+      outcome = "win";
+      opponentOutcome = "loss";
+    } else {
+      outcome = "loss";
+      opponentOutcome = "win";
+    }
+
+    updateBattleRecord(playerCharacter, outcome);
+
+    if (currentUser) {
+      if (outcome === "win") {
+        currentUser.points = Number(currentUser.points || 0) + 3;
+      } else if (outcome === "draw") {
+        currentUser.points = Number(currentUser.points || 0) + 1;
+      }
+    }
+
+    await Promise.all([
+      window.SupabaseApi.updateCharacterRecord(
+        playerCharacter.remoteId,
+        Number(playerCharacter.wins || 0),
+        Number(playerCharacter.losses || 0),
+        Number(playerCharacter.draws || 0)
+      ),
+      window.SupabaseApi.updateCharacterRecord(
+        opponentCharacter.remoteId,
+        Number(opponentCharacter.wins || 0) + (opponentOutcome === "win" ? 1 : 0),
+        Number(opponentCharacter.losses || 0) + (opponentOutcome === "loss" ? 1 : 0),
+        Number(opponentCharacter.draws || 0) + (opponentOutcome === "draw" ? 1 : 0)
+      )
+    ]);
+
+    battleLog = decision.battleLog || buildBattleLog(playerCharacter, opponentCharacter, outcome, "solo");
+    remoteWinnerId = decision.winner
+      ? (decision.winner.id === playerCharacter.id ? playerCharacter.remoteId : opponentCharacter.remoteId)
+      : null;
+
+    battleRecord = await window.SupabaseApi.createBattle({
+      character_a_id: playerCharacter.remoteId,
+      character_b_id: opponentCharacter.remoteId,
+      winner_id: remoteWinnerId,
+      story: battleLog
+    });
+
+    state.battles.unshift({
+      id: battleRecord.id || createId("battle"),
+      remoteBattleId: battleRecord.id || null,
+      battleType: "solo",
+      player1CharacterId: playerCharacter.id,
+      player2CharacterId: opponentCharacter.remoteId,
+      winnerCharacterId: decision.winner
+        ? (decision.winner.id === playerCharacter.id ? playerCharacter.id : opponentCharacter.remoteId)
+        : null,
+      opponentName: opponentCharacter.name,
+      opponentRace: opponentCharacter.race,
+      opponentElement: opponentCharacter.element,
+      winnerName: decision.winner ? decision.winner.name : "",
+      battleLog: battleLog,
+      source: decision.source || "fallback",
+      createdAt: battleRecord.created_at || nowIso()
+    });
+
+    view.selectedCharacterId = playerCharacter.id;
+    view.battleResultId = state.battles[0].id;
+    saveState(state);
+    await loadRemotePersonalRanking();
     return true;
   }
 
@@ -595,21 +1149,25 @@
       return false;
     }
 
-    state.characters.unshift({
+    var character = {
       id: createId("char"),
+      remoteId: payload.remoteId || null,
+      remoteUserId: payload.remoteUserId || null,
       userId: state.userId,
       name: payload.name,
       race: payload.race,
       element: payload.element,
       battleText: payload.battleText,
-      wins: 0,
-      losses: 0,
-      draws: 0,
-      createdAt: nowIso()
-    });
+      wins: Number(payload.wins || 0),
+      losses: Number(payload.losses || 0),
+      draws: Number(payload.draws || 0),
+      createdAt: payload.createdAt || nowIso()
+    };
+
+    state.characters.unshift(character);
 
     saveState(state);
-    return true;
+    return character;
   }
 
   function deleteCharacter(state, characterId) {
@@ -643,6 +1201,7 @@
     var guild = {
       id: createId("guild"),
       name: guildName,
+      ownerUserId: state.userId,
       score: 0,
       inviteCode: "KW-" + Math.random().toString(36).slice(2, 8).toUpperCase(),
       createdAt: nowIso()
@@ -687,6 +1246,17 @@
     state.guildMembers = state.guildMembers.filter(function (member) {
       return member.userId !== state.userId;
     });
+    pruneOrphanGuilds(state);
+    saveState(state);
+  }
+
+  function disbandGuild(state, guildId) {
+    state.guildMembers = state.guildMembers.filter(function (member) {
+      return member.guildId !== guildId;
+    });
+    state.guilds = state.guilds.filter(function (guild) {
+      return guild.id !== guildId;
+    });
     saveState(state);
   }
 
@@ -706,21 +1276,34 @@
     var selected = view.selectedCharacterId === character.id;
     var winRate = getWinRate(character);
     var actions = [];
+    var headerActions = [];
     var battleLabel = view.isBattling ? "판정 중..." : "배틀";
     var guildBattleLabel = view.isBattling ? "판정 중..." : "길드 배틀";
 
     if (context === "home") {
-      actions.push('<button class="button button--primary" data-action="start-solo-battle" data-character-id="' + escapeHtml(character.id) + '">' + battleLabel + "</button>");
-      actions.push('<button class="button button--danger" data-action="delete-character" data-character-id="' + escapeHtml(character.id) + '">삭제</button>');
+      if (selected) {
+        actions.push('<button class="button button--primary" data-action="start-solo-battle" data-character-id="' + escapeHtml(character.id) + '">' + battleLabel + "</button>");
+      }
+
+      headerActions.push(
+        '<button class="icon-button icon-button--danger" type="button" data-action="delete-character" data-character-id="' +
+          escapeHtml(character.id) +
+          '" aria-label="캐릭터 삭제">✕</button>'
+      );
     } else if (context === "arena") {
-      actions.push('<button class="button button--primary" data-action="start-guild-battle" data-character-id="' + escapeHtml(character.id) + '">' + guildBattleLabel + "</button>");
+      if (selected) {
+        actions.push('<button class="button button--primary" data-action="start-guild-battle" data-character-id="' + escapeHtml(character.id) + '">' + guildBattleLabel + "</button>");
+      }
     }
 
     return (
       '<article class="character-card' + (selected ? " character-card--selected" : "") + '" data-action="select-character" data-character-id="' + escapeHtml(character.id) + '">' +
       '<div class="character-card__content">' +
       '<div class="stack stack--8">' +
+      '<div class="character-card__header">' +
       '<h3 class="character-card__name">' + escapeHtml(character.name) + "</h3>" +
+      headerActions.join("") +
+      "</div>" +
       '<p class="character-card__description">' + escapeHtml(character.battleText) + "</p>" +
       "</div>" +
       '<div class="tag-row">' +
@@ -730,9 +1313,9 @@
       renderTag("점수", getScore(character), "accent") +
       "</div>" +
       "</div>" +
-      '<div class="character-card__actions">' +
-      actions.join("") +
-      "</div>" +
+      (actions.length
+        ? ('<div class="character-card__actions">' + actions.join("") + "</div>")
+        : "") +
       "</article>"
     );
   }
@@ -743,6 +1326,9 @@
     });
     var opponent;
     var winner;
+    var opponentName;
+    var opponentRace;
+    var opponentElement;
 
     if (!battle) {
       return "";
@@ -753,6 +1339,9 @@
       battle.player1CharacterId === view.selectedCharacterId ? battle.player2CharacterId : battle.player1CharacterId
     );
     winner = battle.winnerCharacterId ? getCharacterById(state, battle.winnerCharacterId) : null;
+    opponentName = opponent ? opponent.name : battle.opponentName || "알 수 없음";
+    opponentRace = opponent ? opponent.race : battle.opponentRace || "미설정";
+    opponentElement = opponent ? opponent.element : battle.opponentElement || "미설정";
 
     return (
       '<section class="panel panel--result">' +
@@ -765,13 +1354,24 @@
       "</div>" +
       (view.battleNotice ? '<p class="section-copy">' + escapeHtml(view.battleNotice) + "</p>" : "") +
       '<div class="battle-result__summary">' +
-      '<div class="stat-card"><span>상대</span><strong>' + escapeHtml(opponent ? opponent.name : "알 수 없음") + "</strong></div>" +
-      '<div class="stat-card"><span>판정</span><strong>' + escapeHtml(winner ? winner.name + " 승리" : "무승부") + "</strong></div>" +
-      '<div class="stat-card"><span>판정 방식</span><strong>' + escapeHtml(battle.source === "ai" ? "AI" : "Fallback") + "</strong></div>" +
+      '<div class="stat-card"><span>상대</span><strong>' + escapeHtml(opponentName) + '</strong><div class="tag-row">' + renderTag("종족", opponentRace) + renderTag("속성", opponentElement) + "</div></div>" +
+      '<div class="stat-card"><span>판정</span><strong>' + escapeHtml(winner ? winner.name + " 승리" : (battle.winnerName ? battle.winnerName + " 승리" : "무승부")) + "</strong></div>" +
       "</div>" +
       '<pre class="battle-log">' + escapeHtml(battle.battleLog) + "</pre>" +
       "</section>"
     );
+  }
+
+  function renderCharacterListWithBattle(state, characters, context) {
+    return characters.map(function (character) {
+      var content = renderCharacterCard(character, state, context);
+
+      if (view.selectedCharacterId === character.id && view.battleResultId) {
+        content += renderBattleResult(state);
+      }
+
+      return content;
+    }).join("");
   }
 
   function renderHomeTab(state) {
@@ -800,12 +1400,9 @@
       (view.homeCreateOpen ? renderCreateCharacterForm() : "") +
       '<section class="list-section">' +
       (myCharacters.length
-        ? myCharacters.map(function (character) {
-            return renderCharacterCard(character, state, "home");
-          }).join("")
+        ? renderCharacterListWithBattle(state, myCharacters, "home")
         : renderEmptyState("아직 캐릭터가 없습니다.", "첫 캐릭터를 만들고 개인 배틀을 시작하세요.")) +
       "</section>" +
-      renderBattleResult(state) +
       "</section>"
     );
   }
@@ -867,13 +1464,14 @@
       "</div>" +
       "</header>" +
       '<section class="panel">' +
+      (view.remoteStatus ? '<p class="section-copy">' + escapeHtml(view.remoteStatus) + "</p>" : "") +
       '<div class="segment-control">' +
       '<button class="segment-control__button' + (isPersonal ? " is-active" : "") + '" data-action="set-ranking-mode" data-mode="personal">개인 랭킹</button>' +
       '<button class="segment-control__button' + (!isPersonal ? " is-active" : "") + '" data-action="set-ranking-mode" data-mode="guild">길드 랭킹</button>' +
       "</div>" +
       '<div class="list-section list-section--tight">' +
       (isPersonal
-        ? personalRows.map(renderPersonalRankRow).join("")
+        ? (personalRows.length ? personalRows.map(renderPersonalRankRow).join("") : renderEmptyState("개인 랭킹 데이터가 없습니다.", "배틀을 저장하면 실데이터 랭킹이 표시됩니다."))
         : guildRows.map(renderGuildRankRow).join("")) +
       "</div>" +
       "</section>" +
@@ -887,7 +1485,7 @@
       '<div class="rank-row__leading"><span class="rank-row__rank">#' + entry.rank + '</span></div>' +
       '<div class="rank-row__body">' +
       '<h3 class="rank-row__title">' + escapeHtml(entry.character.name) + "</h3>" +
-      '<p class="rank-row__meta">' + escapeHtml((entry.user && entry.user.nickname) || "알 수 없음") + "</p>" +
+      '<p class="rank-row__meta">' + escapeHtml((entry.user && entry.user.nickname) || entry.character.nickname || "알 수 없음") + "</p>" +
       '<div class="tag-row">' +
       renderTag("승", entry.character.wins || 0) +
       renderTag("승률", getWinRate(entry.character) + "%") +
@@ -962,12 +1560,9 @@
       "</section>" +
       '<section class="list-section">' +
       (myCharacters.length
-        ? myCharacters.map(function (character) {
-            return renderCharacterCard(character, state, "arena");
-          }).join("")
+        ? renderCharacterListWithBattle(state, myCharacters, "arena")
         : renderEmptyState("길드전에 투입할 캐릭터가 없습니다.", "홈 탭에서 먼저 캐릭터를 생성하세요.")) +
       "</section>" +
-      renderBattleResult(state) +
       "</section>"
     );
   }
@@ -976,6 +1571,7 @@
     var guild = getGuildByUser(state, state.userId);
     var members;
     var guildRank;
+    var owner;
 
     if (!guild) {
       return (
@@ -1019,6 +1615,7 @@
     guildRank = getGuildRanking(state).find(function (entry) {
       return entry.guild.id === guild.id;
     });
+    owner = isGuildOwner(state, state.userId, guild.id);
 
     return (
       '<section class="page">' +
@@ -1044,7 +1641,7 @@
         return '<article class="member-row"><strong>' + escapeHtml(member.nickname) + '</strong></article>';
       }).join("") +
       "</div>" +
-      '<button class="button button--danger button--full" data-action="leave-guild">길드 탈퇴</button>' +
+      '<button class="button button--danger button--full" data-action="' + (owner ? "disband-guild" : "leave-guild") + '">' + (owner ? "길드 해체" : "길드 탈퇴") + "</button>" +
       "</section>" +
       "</section>"
     );
@@ -1052,6 +1649,7 @@
 
   function renderProfileTab(state) {
     var user = getCurrentUser(state);
+    var session = createSession();
     var myCharacters = getCharactersByUser(state, state.userId);
     var totals = myCharacters.reduce(
       function (acc, character) {
@@ -1077,9 +1675,21 @@
       '<section class="panel">' +
       '<div class="stats-grid">' +
       '<div class="stat-card"><span>닉네임</span><strong>' + escapeHtml(user ? user.nickname : "-") + "</strong></div>" +
+      '<div class="stat-card"><span>연동 상태</span><strong>' + escapeHtml(session.telegram_id ? (session.telegram_verified ? "Telegram 검증됨" : "Telegram 연결됨") : "게스트 모드") + "</strong></div>" +
       '<div class="stat-card"><span>보유 포인트</span><strong>' + escapeHtml(user ? user.points : 0) + "</strong></div>" +
       '<div class="stat-card"><span>총 전적</span><strong>' + escapeHtml(totalBattles) + "</strong></div>" +
       '<div class="stat-card"><span>승률</span><strong>' + escapeHtml(totalBattles ? Math.round((totals.wins / totalBattles) * 100) : 0) + "%</strong></div>" +
+      "</div>" +
+      '<div class="panel panel--sub">' +
+      '<p class="section-kicker">계정 식별</p>' +
+      '<h2 class="section-title section-title--small">' + escapeHtml(session.telegram_id ? "Telegram 계정" : "로컬 게스트 세션") + "</h2>" +
+      '<p class="section-copy">' +
+      escapeHtml(
+        session.telegram_id
+          ? ("Telegram ID " + session.telegram_id + (session.username ? " / @" + session.username : "") + (session.telegram_verified ? " / 검증 완료" : " / 미검증"))
+          : "텔레그램 밖에서 실행 중입니다. 현재 세션은 이 브라우저에만 저장됩니다."
+      ) +
+      "</p>" +
       "</div>" +
       '<div class="panel panel--sub">' +
       '<p class="section-kicker">소속 길드</p>' +
@@ -1139,13 +1749,16 @@
     );
   }
 
-  function handleCreateCharacter(event) {
+  async function handleCreateCharacter(event) {
     var state = getState();
     var form = event.target;
     var name = clampText(form.name.value.trim(), 20);
     var race = form.race.value;
     var element = form.element.value;
     var battleText = clampText(form.battleText.value.trim(), BATTLE_TEXT_LIMIT);
+    var character;
+    var remoteCharacter;
+    var context;
 
     event.preventDefault();
 
@@ -1154,20 +1767,59 @@
       return;
     }
 
-    if (createCharacter(state, {
-      name: name,
-      race: race,
-      element: element,
-      battleText: battleText
-    })) {
+    if (getCharactersByUser(state, state.userId).length >= MAX_CHARACTERS) {
+      window.alert("캐릭터는 최대 5개까지 만들 수 있습니다.");
+      return;
+    }
+
+    try {
+      if (hasRemoteApi()) {
+        context = await ensureRemoteUserSession();
+        remoteCharacter = await window.SupabaseApi.createCharacter({
+          user_id: context.user.id,
+          nickname: context.user.nickname,
+          name: name,
+          description: buildCharacterDescription({
+            race: race,
+            element: element,
+            battleText: battleText
+          })
+        });
+      }
+
+      character = createCharacter(state, {
+        name: name,
+        race: race,
+        element: element,
+        battleText: battleText,
+        remoteId: remoteCharacter ? remoteCharacter.id : null,
+        remoteUserId: context ? context.user.id : null,
+        wins: remoteCharacter ? remoteCharacter.wins : 0,
+        losses: remoteCharacter ? remoteCharacter.losses : 0,
+        draws: remoteCharacter ? remoteCharacter.draws : 0,
+        createdAt: remoteCharacter ? remoteCharacter.created_at : nowIso()
+      });
+
+      if (!character) {
+        return;
+      }
+
       view.homeCreateOpen = false;
+
+      if (hasRemoteApi()) {
+        await loadRemotePersonalRanking();
+      }
+
       renderApp();
+    } catch (error) {
+      window.alert(error && error.message ? error.message : "캐릭터 저장 중 오류가 발생했습니다.");
     }
   }
 
-  function handleGuildCreate(event) {
+  async function handleGuildCreate(event) {
     var state = getState();
     var name = event.target.name.value.trim();
+    var context;
 
     event.preventDefault();
 
@@ -1176,14 +1828,26 @@
       return;
     }
 
-    if (createGuild(state, name)) {
-      renderApp();
+    try {
+      if (hasRemoteApi()) {
+        context = await ensureRemoteUserSession();
+        await window.SupabaseApi.createGuild(name, context.user.id);
+        await syncRemoteGuildsIntoState(state);
+        renderApp();
+      } else {
+        if (createGuild(state, name)) {
+          renderApp();
+        }
+      }
+    } catch (error) {
+      window.alert(error && error.message ? error.message : "길드 생성 중 오류가 발생했습니다.");
     }
   }
 
-  function handleGuildJoin(event) {
+  async function handleGuildJoin(event) {
     var state = getState();
     var inviteCode = event.target.inviteCode.value.trim();
+    var context;
 
     event.preventDefault();
 
@@ -1192,8 +1856,19 @@
       return;
     }
 
-    if (joinGuild(state, inviteCode)) {
-      renderApp();
+    try {
+      if (hasRemoteApi()) {
+        context = await ensureRemoteUserSession();
+        await window.SupabaseApi.joinGuildByInviteCode(inviteCode, context.user.id);
+        await syncRemoteGuildsIntoState(state);
+        renderApp();
+      } else {
+        if (joinGuild(state, inviteCode)) {
+          renderApp();
+        }
+      }
+    } catch (error) {
+      window.alert(error && error.message ? error.message : "길드 가입 중 오류가 발생했습니다.");
     }
   }
 
@@ -1224,13 +1899,22 @@
 
     if (trigger.dataset.action === "set-ranking-mode") {
       view.rankingMode = trigger.dataset.mode;
+      if (view.rankingMode === PERSONAL_RANKING && hasRemoteApi() && !view.remotePersonalRankingLoaded) {
+        view.remoteStatus = "실데이터 랭킹을 불러오는 중입니다.";
+        loadRemotePersonalRanking()
+          .catch(function (error) {
+            view.remoteStatus = error && error.message ? error.message : "랭킹 데이터를 불러오지 못했습니다.";
+          })
+          .finally(renderApp);
+      }
       renderApp();
       return;
     }
 
     if (trigger.dataset.action === "select-character") {
       if (trigger.dataset.characterId) {
-        view.selectedCharacterId = trigger.dataset.characterId;
+        view.selectedCharacterId =
+          view.selectedCharacterId === trigger.dataset.characterId ? null : trigger.dataset.characterId;
         view.battleNotice = "";
         renderApp();
       }
@@ -1244,7 +1928,21 @@
       if (!window.confirm("이 캐릭터를 삭제할까요? 전적도 함께 삭제됩니다.")) {
         return;
       }
+      if (hasRemoteApi()) {
+        var deletingCharacter = getCharacterById(state, characterId);
+        if (deletingCharacter && deletingCharacter.remoteId) {
+          try {
+            await window.SupabaseApi.deleteCharacter(deletingCharacter.remoteId);
+          } catch (error) {
+            window.alert(error && error.message ? error.message : "원격 캐릭터 삭제에 실패했습니다.");
+            return;
+          }
+        }
+      }
       deleteCharacter(state, characterId);
+      if (hasRemoteApi()) {
+        await loadRemotePersonalRanking();
+      }
       renderApp();
       return;
     }
@@ -1285,7 +1983,44 @@
       if (!window.confirm("길드에서 탈퇴할까요?")) {
         return;
       }
-      leaveGuild(state);
+      try {
+        if (hasRemoteApi()) {
+          var currentContext = await ensureRemoteUserSession();
+          var currentGuild = getGuildByUser(state, state.userId);
+          if (currentGuild) {
+            await window.SupabaseApi.leaveGuild(currentGuild.id, currentContext.user.id);
+            await syncRemoteGuildsIntoState(state);
+          }
+        } else {
+          leaveGuild(state);
+        }
+      } catch (error) {
+        window.alert(error && error.message ? error.message : "길드 탈퇴 중 오류가 발생했습니다.");
+        return;
+      }
+      renderApp();
+      return;
+    }
+
+    if (trigger.dataset.action === "disband-guild") {
+      var ownedGuild = getGuildByUser(state, state.userId);
+      if (!ownedGuild) {
+        return;
+      }
+      if (!window.confirm("길드를 해체할까요? 초대 코드와 모든 길드 멤버 정보가 함께 삭제됩니다.")) {
+        return;
+      }
+      try {
+        if (hasRemoteApi()) {
+          await window.SupabaseApi.disbandGuild(ownedGuild.id);
+          await syncRemoteGuildsIntoState(state);
+        } else {
+          disbandGuild(state, ownedGuild.id);
+        }
+      } catch (error) {
+        window.alert(error && error.message ? error.message : "길드 해체 중 오류가 발생했습니다.");
+        return;
+      }
       renderApp();
     }
   }
@@ -1308,5 +2043,33 @@
 
   document.addEventListener("click", handleClick);
   document.addEventListener("submit", handleSubmit);
-  document.addEventListener("DOMContentLoaded", renderApp);
+  document.addEventListener("DOMContentLoaded", function () {
+    var state = getState();
+
+    renderApp();
+
+    if (!hasRemoteApi()) {
+      return;
+    }
+
+    view.remoteStatus = "실데이터를 동기화하는 중입니다.";
+    verifyTelegramSession()
+      .catch(function (error) {
+        console.warn("Telegram session verification failed:", error);
+      })
+      .then(function () {
+        return syncRemoteCharactersIntoState(state);
+      })
+      .then(function () {
+        return syncRemoteGuildsIntoState(state);
+      })
+      .then(loadRemotePersonalRanking)
+      .then(function () {
+        view.remoteStatus = "";
+      })
+      .catch(function (error) {
+        view.remoteStatus = error && error.message ? error.message : "실데이터 동기화에 실패했습니다.";
+      })
+      .finally(renderApp);
+  });
 })();

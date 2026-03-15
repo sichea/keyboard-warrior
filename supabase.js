@@ -5,7 +5,9 @@
   var SUPABASE_ANON_KEY = "sb_publishable_4TH7g59bxTthNr6aXMmxdw_9loMIb4S";
   var STORAGE_BUCKET = "character-images";
   var AI_FUNCTION_NAME = "battle-ai";
+  var TELEGRAM_AUTH_FUNCTION_NAME = "telegram-auth";
   var CHARACTER_LIMIT = 5;
+  var GUILD_INVITE_PREFIX = "KW-";
 
   function hasValidConfig() {
     return Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
@@ -323,6 +325,21 @@
     return result.data;
   }
 
+  async function verifyTelegramWebAppData(initData) {
+    var client = ensureClient();
+    var result = await client.functions.invoke(TELEGRAM_AUTH_FUNCTION_NAME, {
+      body: {
+        init_data: initData
+      }
+    });
+
+    if (result.error) {
+      throw result.error;
+    }
+
+    return result.data;
+  }
+
   async function createBattle(payload) {
     var client = ensureClient();
     var result = await client.from("battles").insert([payload]).select().single();
@@ -334,15 +351,260 @@
     return result.data;
   }
 
-  async function updateCharacterRecord(characterId, nextWins, nextLosses) {
+  async function updateCharacterRecord(characterId, nextWins, nextLosses, nextDraws) {
     var client = ensureClient();
+    var payload = {
+      wins: nextWins,
+      losses: nextLosses
+    };
     var result = await client
       .from("characters")
-      .update({
-        wins: nextWins,
-        losses: nextLosses
-      })
+      .update(typeof nextDraws === "number" ? Object.assign(payload, { draws: nextDraws }) : payload)
       .eq("id", characterId)
+      .select()
+      .single();
+
+    if (result.error) {
+      throw result.error;
+    }
+
+    return result.data;
+  }
+
+  function createInviteCode() {
+    return GUILD_INVITE_PREFIX + Math.random().toString(36).slice(2, 8).toUpperCase();
+  }
+
+  async function createUniqueInviteCode() {
+    var client = ensureClient();
+    var inviteCode = "";
+    var attempt = 0;
+    var existing;
+
+    while (attempt < 8) {
+      inviteCode = createInviteCode();
+      existing = await client
+        .from("guilds")
+        .select("id")
+        .eq("invite_code", inviteCode)
+        .limit(1)
+        .maybeSingle();
+
+      if (existing.error) {
+        throw existing.error;
+      }
+
+      if (!existing.data) {
+        return inviteCode;
+      }
+
+      attempt += 1;
+    }
+
+    throw new Error("사용 가능한 길드 초대 코드를 생성하지 못했습니다.");
+  }
+
+  async function fetchGuilds() {
+    var client = ensureClient();
+    var result = await client
+      .from("guilds")
+      .select("*")
+      .order("score", { ascending: false })
+      .order("created_at", { ascending: false });
+
+    if (result.error) {
+      throw result.error;
+    }
+
+    return result.data || [];
+  }
+
+  async function fetchGuildMembers() {
+    var client = ensureClient();
+    var result = await client
+      .from("guild_members")
+      .select("guild_id, user_id, joined_at")
+      .order("joined_at", { ascending: true });
+
+    if (result.error) {
+      throw result.error;
+    }
+
+    return result.data || [];
+  }
+
+  async function fetchGuildSnapshot() {
+    var guilds = await fetchGuilds();
+    var guildMembers = await fetchGuildMembers();
+    var client = ensureClient();
+    var userIds = [];
+    var seen = {};
+    var usersResult;
+    var nicknameMap = {};
+
+    guildMembers.forEach(function (member) {
+      if (member.user_id && !seen[member.user_id]) {
+        seen[member.user_id] = true;
+        userIds.push(member.user_id);
+      }
+    });
+
+    if (userIds.length) {
+      usersResult = await client
+        .from("users")
+        .select("id, nickname")
+        .in("id", userIds);
+
+      if (usersResult.error) {
+        throw usersResult.error;
+      }
+
+      (usersResult.data || []).forEach(function (user) {
+        nicknameMap[user.id] = user.nickname;
+      });
+    }
+
+    return {
+      guilds: guilds,
+      guildMembers: guildMembers.map(function (member) {
+        return {
+          guild_id: member.guild_id,
+          user_id: member.user_id,
+          joined_at: member.joined_at,
+          nickname: nicknameMap[member.user_id] || "알 수 없음"
+        };
+      })
+    };
+  }
+
+  async function createGuild(name, ownerUserId) {
+    var client = ensureClient();
+    var inviteCode = await createUniqueInviteCode();
+    var guildResult = await client
+      .from("guilds")
+      .insert([
+        {
+          name: name,
+          owner_user_id: ownerUserId,
+          invite_code: inviteCode,
+          score: 0
+        }
+      ])
+      .select()
+      .single();
+    var memberResult;
+
+    if (guildResult.error) {
+      throw guildResult.error;
+    }
+
+    memberResult = await client
+      .from("guild_members")
+      .insert([
+        {
+          guild_id: guildResult.data.id,
+          user_id: ownerUserId
+        }
+      ]);
+
+    if (memberResult.error) {
+      throw memberResult.error;
+    }
+
+    return guildResult.data;
+  }
+
+  async function joinGuildByInviteCode(inviteCode, userId) {
+    var client = ensureClient();
+    var guildResult = await client
+      .from("guilds")
+      .select("*")
+      .eq("invite_code", String(inviteCode || "").trim().toUpperCase())
+      .limit(1)
+      .maybeSingle();
+    var existingMemberResult;
+    var insertResult;
+
+    if (guildResult.error) {
+      throw guildResult.error;
+    }
+
+    if (!guildResult.data) {
+      throw new Error("초대 코드를 찾을 수 없습니다.");
+    }
+
+    existingMemberResult = await client
+      .from("guild_members")
+      .select("guild_id")
+      .eq("user_id", userId)
+      .limit(1)
+      .maybeSingle();
+
+    if (existingMemberResult.error) {
+      throw existingMemberResult.error;
+    }
+
+    if (existingMemberResult.data) {
+      throw new Error("이미 길드에 가입되어 있습니다.");
+    }
+
+    insertResult = await client
+      .from("guild_members")
+      .insert([
+        {
+          guild_id: guildResult.data.id,
+          user_id: userId
+        }
+      ]);
+
+    if (insertResult.error) {
+      throw insertResult.error;
+    }
+
+    return guildResult.data;
+  }
+
+  async function leaveGuild(guildId, userId) {
+    var client = ensureClient();
+    var result = await client
+      .from("guild_members")
+      .delete()
+      .eq("guild_id", guildId)
+      .eq("user_id", userId);
+
+    if (result.error) {
+      throw result.error;
+    }
+  }
+
+  async function disbandGuild(guildId) {
+    var client = ensureClient();
+    var membersResult = await client
+      .from("guild_members")
+      .delete()
+      .eq("guild_id", guildId);
+    var guildResult;
+
+    if (membersResult.error) {
+      throw membersResult.error;
+    }
+
+    guildResult = await client
+      .from("guilds")
+      .delete()
+      .eq("id", guildId);
+
+    if (guildResult.error) {
+      throw guildResult.error;
+    }
+  }
+
+  async function updateGuildScore(guildId, nextScore) {
+    var client = ensureClient();
+    var result = await client
+      .from("guilds")
+      .update({ score: nextScore })
+      .eq("id", guildId)
       .select()
       .single();
 
@@ -360,13 +622,18 @@
     countCharactersByUser: countCharactersByUser,
     createBattle: createBattle,
     createCharacter: createCharacter,
+    createGuild: createGuild,
     deleteCharacter: deleteCharacter,
+    disbandGuild: disbandGuild,
     ensureClient: ensureClient,
     ensureUserRecord: ensureUserRecord,
     fetchAllBattles: fetchAllBattles,
     fetchBattleCount: fetchBattleCount,
     fetchCharacterCount: fetchCharacterCount,
     fetchCharactersForRanking: fetchCharactersForRanking,
+    fetchGuildMembers: fetchGuildMembers,
+    fetchGuildSnapshot: fetchGuildSnapshot,
+    fetchGuilds: fetchGuilds,
     fetchMyCharacters: fetchMyCharacters,
     fetchRecentBattles: fetchRecentBattles,
     fetchTwoRandomCharacters: fetchTwoRandomCharacters,
@@ -374,8 +641,12 @@
     getMissingConfigMessage: getMissingConfigMessage,
     hasValidConfig: hasValidConfig,
     hydrateBattles: hydrateBattles,
+    joinGuildByInviteCode: joinGuildByInviteCode,
+    leaveGuild: leaveGuild,
     updateCharacterDetails: updateCharacterDetails,
     updateCharacterRecord: updateCharacterRecord,
-    uploadCharacterImage: uploadCharacterImage
+    updateGuildScore: updateGuildScore,
+    uploadCharacterImage: uploadCharacterImage,
+    verifyTelegramWebAppData: verifyTelegramWebAppData
   };
 })();

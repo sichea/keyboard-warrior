@@ -28,6 +28,158 @@ begin
 end
 $$;
 
+-- 길드 실데이터 테이블을 보장합니다.
+create table if not exists public.guilds (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  owner_user_id uuid not null references public.users (id) on delete cascade,
+  invite_code text not null unique,
+  score integer not null default 0,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.guild_members (
+  guild_id uuid not null references public.guilds (id) on delete cascade,
+  user_id uuid not null references public.users (id) on delete cascade,
+  joined_at timestamptz not null default now(),
+  primary key (guild_id, user_id)
+);
+
+create unique index if not exists idx_guild_members_user_id_unique
+on public.guild_members (user_id);
+
+create index if not exists idx_guilds_score
+on public.guilds (score desc, created_at desc);
+
+create index if not exists idx_guild_members_guild_id
+on public.guild_members (guild_id);
+
+create index if not exists idx_guild_members_user_id
+on public.guild_members (user_id);
+
+alter table public.guilds enable row level security;
+alter table public.guild_members enable row level security;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_policies
+    where schemaname = 'public'
+      and tablename = 'guilds'
+      and policyname = 'guilds_select_public'
+  ) then
+    create policy "guilds_select_public"
+    on public.guilds
+    for select
+    to public
+    using (true);
+  end if;
+end
+$$;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_policies
+    where schemaname = 'public'
+      and tablename = 'guilds'
+      and policyname = 'guilds_insert_public'
+  ) then
+    create policy "guilds_insert_public"
+    on public.guilds
+    for insert
+    to public
+    with check (true);
+  end if;
+end
+$$;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_policies
+    where schemaname = 'public'
+      and tablename = 'guilds'
+      and policyname = 'guilds_update_public'
+  ) then
+    create policy "guilds_update_public"
+    on public.guilds
+    for update
+    to public
+    using (true)
+    with check (true);
+  end if;
+end
+$$;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_policies
+    where schemaname = 'public'
+      and tablename = 'guilds'
+      and policyname = 'guilds_delete_public'
+  ) then
+    create policy "guilds_delete_public"
+    on public.guilds
+    for delete
+    to public
+    using (true);
+  end if;
+end
+$$;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_policies
+    where schemaname = 'public'
+      and tablename = 'guild_members'
+      and policyname = 'guild_members_select_public'
+  ) then
+    create policy "guild_members_select_public"
+    on public.guild_members
+    for select
+    to public
+    using (true);
+  end if;
+end
+$$;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_policies
+    where schemaname = 'public'
+      and tablename = 'guild_members'
+      and policyname = 'guild_members_insert_public'
+  ) then
+    create policy "guild_members_insert_public"
+    on public.guild_members
+    for insert
+    to public
+    with check (true);
+  end if;
+end
+$$;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_policies
+    where schemaname = 'public'
+      and tablename = 'guild_members'
+      and policyname = 'guild_members_delete_public'
+  ) then
+    create policy "guild_members_delete_public"
+    on public.guild_members
+    for delete
+    to public
+    using (true);
+  end if;
+end
+$$;
+
 -- 설명 컬럼은 현재 프론트에서 "캐릭터 설정 + 스킬 직렬화 문자열"로 사용합니다.
 comment on column public.characters.description is
 '현재는 캐릭터 설정과 스킬을 함께 저장하는 직렬화 문자열입니다. 운영 단계에서는 settings, skills 컬럼 분리를 권장합니다.';

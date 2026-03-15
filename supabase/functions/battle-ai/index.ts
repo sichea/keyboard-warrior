@@ -84,8 +84,8 @@ function buildPrompt(characterA: Record<string, unknown>, characterB: Record<str
 [출력 규칙]
 - 반드시 JSON만 반환합니다.
 - winner 값은 반드시 "A" 또는 "B" 입니다.
-- battle_log는 1~2문장, 최대 200자 이내입니다.
-- battle_log는 짧고 드라마틱하게 작성하되 승리 이유가 자연스럽게 드러나야 합니다.
+- battle_log는 1~2문장, 최대 400자 이내입니다.
+- battle_log는 드라마틱하게 작성하되 승리 이유가 자연스럽게 드러나야 합니다.
 
 캐릭터 A:
 - id: ${String(characterA.id ?? "")}
@@ -126,7 +126,7 @@ function normalizeDecisionPayload(payload: Record<string, unknown>) {
 
   return {
     winner: String(payload.winner ?? "").trim().toUpperCase(),
-    battle_log: battleLog.length > 200 ? battleLog.slice(0, 197).trimEnd() + "..." : battleLog,
+    battle_log: battleLog.length > 400 ? battleLog.slice(0, 397).trimEnd() + "..." : battleLog,
   };
 }
 
