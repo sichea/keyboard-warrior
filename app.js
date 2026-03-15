@@ -5,6 +5,7 @@
   var SESSION_KEY = "keyboard-warrior-session";
   var STATE_VERSION = 2;
   var MAX_CHARACTERS = 5;
+  var DESCRIPTION_LIMIT = 100;
   var BATTLE_TEXT_LIMIT = 100;
   var GUILD_WIN_SCORE = 10;
   var DEFAULT_CHARACTER_IMAGE =
@@ -470,6 +471,60 @@
       "속성: " + (character.element || "미설정"),
       "전투 문장: " + (character.battleText || "")
     ].join("\n");
+  }
+
+  function getBattleTextLimitForSelection(race, element) {
+    var reserved = buildCharacterDescription({
+      race: race || "미설정",
+      element: element || "미설정",
+      battleText: ""
+    }).length;
+
+    return Math.max(0, Math.min(BATTLE_TEXT_LIMIT, DESCRIPTION_LIMIT - reserved));
+  }
+
+  function syncCharacterCreateFormConstraints(form) {
+    var raceField;
+    var elementField;
+    var battleTextField;
+    var hint;
+    var dynamicLimit;
+    var descriptionLength;
+
+    if (!form) {
+      return;
+    }
+
+    raceField = form.elements.race;
+    elementField = form.elements.element;
+    battleTextField = form.elements.battleText;
+    hint = form.querySelector("[data-role='battle-text-hint']");
+
+    if (!raceField || !elementField || !battleTextField || !hint) {
+      return;
+    }
+
+    dynamicLimit = getBattleTextLimitForSelection(raceField.value, elementField.value);
+    battleTextField.maxLength = dynamicLimit;
+
+    if (battleTextField.value.length > dynamicLimit) {
+      battleTextField.value = battleTextField.value.slice(0, dynamicLimit);
+    }
+
+    descriptionLength = buildCharacterDescription({
+      race: raceField.value,
+      element: elementField.value,
+      battleText: battleTextField.value
+    }).length;
+
+    hint.textContent =
+      "저장 길이 " +
+      descriptionLength +
+      " / " +
+      DESCRIPTION_LIMIT +
+      " · 전투 문장 최대 " +
+      dynamicLimit +
+      "자";
   }
 
   function normalizeRemoteCharacter(character) {
@@ -1470,8 +1525,8 @@
       "</label>" +
       '<label class="field">' +
       '<span class="field__label">전투 문장</span>' +
-      '<textarea class="field__control field__control--textarea" name="battleText" maxlength="' + BATTLE_TEXT_LIMIT + '" required placeholder="최대 100자까지 입력할 수 있습니다."></textarea>' +
-      '<span class="field__hint field__hint--align-right">생성 후 수정 불가 / 최대 100자</span>' +
+      '<textarea class="field__control field__control--textarea" name="battleText" maxlength="' + BATTLE_TEXT_LIMIT + '" required placeholder="종족/속성을 포함한 전체 저장 길이 100자 이내로 입력됩니다."></textarea>' +
+      '<span class="field__hint field__hint--align-right" data-role="battle-text-hint">저장 길이 0 / 100 · 전투 문장 최대 100자</span>' +
       "</label>" +
       '<button class="button button--primary button--full" type="submit">생성하기</button>' +
       "</form>" +
@@ -1762,6 +1817,8 @@
       tabContent +
       renderBottomNav() +
       "</div>";
+
+    syncCharacterCreateFormConstraints(document.getElementById("characterCreateForm"));
   }
 
   function renderBottomNav() {
@@ -1794,6 +1851,12 @@
 
     if (!name || !race || !element || !battleText) {
       window.alert("모든 항목을 입력하세요.");
+      return;
+    }
+
+    if (battleText.length > getBattleTextLimitForSelection(race, element)) {
+      window.alert("전투 문장이 저장 가능한 길이를 초과했습니다. 종족/속성을 포함해 100자 이내로 맞춰주세요.");
+      syncCharacterCreateFormConstraints(form);
       return;
     }
 
@@ -2072,7 +2135,15 @@
     }
   }
 
+  function handleInput(event) {
+    if (event.target && event.target.form && event.target.form.id === "characterCreateForm") {
+      syncCharacterCreateFormConstraints(event.target.form);
+    }
+  }
+
   document.addEventListener("click", handleClick);
+  document.addEventListener("input", handleInput);
+  document.addEventListener("change", handleInput);
   document.addEventListener("submit", handleSubmit);
   document.addEventListener("DOMContentLoaded", function () {
     var state = getState();
