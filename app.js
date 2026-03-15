@@ -7,6 +7,16 @@
   var MAX_CHARACTERS = 5;
   var BATTLE_TEXT_LIMIT = 100;
   var GUILD_WIN_SCORE = 10;
+  var DEFAULT_CHARACTER_IMAGE =
+    "data:image/svg+xml;utf8," +
+    encodeURIComponent(
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 320">' +
+      '<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#1e293b"/><stop offset="1" stop-color="#334155"/></linearGradient></defs>' +
+      '<rect width="320" height="320" rx="32" fill="url(#g)"/>' +
+      '<circle cx="160" cy="122" r="56" fill="#94a3b8"/>' +
+      '<path d="M78 264c18-44 54-68 82-68s64 24 82 68" fill="#cbd5e1"/>' +
+      "</svg>"
+    );
   var RACES = ["휴먼", "엘프", "오크", "언데드", "드워프"];
   var ELEMENTS = ["불", "물", "풀", "땅", "전기"];
   var PERSONAL_RANKING = "personal";
@@ -1779,6 +1789,7 @@
           user_id: context.user.id,
           nickname: context.user.nickname,
           name: name,
+          image_url: DEFAULT_CHARACTER_IMAGE,
           description: buildCharacterDescription({
             race: race,
             element: element,
