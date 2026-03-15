@@ -466,6 +466,38 @@ a {
   font-weight: 700;
 }
 
+.rule-disclosure {
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.52);
+  overflow: hidden;
+}
+
+.rule-disclosure__summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 10px 12px;
+  color: var(--text-soft);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.rule-disclosure__summary::-webkit-details-marker {
+  display: none;
+}
+
+.rule-disclosure__body {
+  display: grid;
+  gap: 6px;
+  padding: 0 12px 12px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.rule-disclosure__body p {
+  margin: 0;
+}
+
 .field__control {
   display: block;
   width: 100%;

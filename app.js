@@ -18,7 +18,7 @@
       "</svg>"
     );
   var RACES = ["휴먼", "엘프", "오크", "언데드", "드워프"];
-  var ELEMENTS = ["불", "물", "풀", "땅", "전기"];
+  var ELEMENTS = ["목(木)", "토(土)", "수(水)", "화(火)", "금(金)"];
   var PERSONAL_RANKING = "personal";
   var GUILD_RANKING = "guild";
   var TABS = [
@@ -203,7 +203,7 @@
           userId: users[1].id,
           name: "블레이즈 헌터",
           race: "휴먼",
-          element: "불",
+          element: "화(火)",
           battleText: "불꽃처럼 거세게 밀어붙이며 주도권을 빼앗는다.",
           wins: 8,
           losses: 3,
@@ -215,7 +215,7 @@
           userId: users[2].id,
           name: "타이드 미러",
           race: "엘프",
-          element: "물",
+          element: "수(水)",
           battleText: "물결처럼 흐르며 상대의 빈틈을 천천히 잠식한다.",
           wins: 11,
           losses: 4,
@@ -227,7 +227,7 @@
           userId: users[3].id,
           name: "그린 팽",
           race: "오크",
-          element: "풀",
+          element: "목(木)",
           battleText: "질긴 생명력과 압박으로 전장을 끝까지 장악한다.",
           wins: 6,
           losses: 5,
@@ -239,7 +239,7 @@
           userId: users[4].id,
           name: "스톤 볼트",
           race: "드워프",
-          element: "땅",
+          element: "토(土)",
           battleText: "묵직한 한 방과 방어적인 운영으로 균형을 무너뜨린다.",
           wins: 9,
           losses: 7,
@@ -727,11 +727,11 @@
 
   function getElementAdvantage(element) {
     return {
-      불: "풀",
-      물: "불",
-      풀: "땅",
-      땅: "전기",
-      전기: "물"
+      "목(木)": "토(土)",
+      "토(土)": "수(水)",
+      "수(水)": "화(火)",
+      "화(火)": "금(金)",
+      "금(金)": "목(木)"
     }[element] || "";
   }
 
@@ -1434,6 +1434,16 @@
       "</label>" +
       '<label class="field">' +
       '<span class="field__label">종족</span>' +
+      '<details class="rule-disclosure">' +
+      '<summary class="rule-disclosure__summary">종족 상성 규칙 보기</summary>' +
+      '<div class="rule-disclosure__body">' +
+      '<p>엘프 &gt; 휴먼</p>' +
+      '<p>오크 &gt; 엘프</p>' +
+      '<p>휴먼 &gt; 언데드</p>' +
+      '<p>언데드 &gt; 드워프</p>' +
+      '<p>드워프 &gt; 오크</p>' +
+      "</div>" +
+      "</details>" +
       '<select class="field__control" name="race" required>' +
       RACES.map(function (race) {
         return '<option value="' + escapeHtml(race) + '">' + escapeHtml(race) + "</option>";
@@ -1442,6 +1452,16 @@
       "</label>" +
       '<label class="field">' +
       '<span class="field__label">속성</span>' +
+      '<details class="rule-disclosure">' +
+      '<summary class="rule-disclosure__summary">속성 상성 규칙 보기</summary>' +
+      '<div class="rule-disclosure__body">' +
+      '<p>목(木) &gt; 토(土)</p>' +
+      '<p>토(土) &gt; 수(水)</p>' +
+      '<p>수(水) &gt; 화(火)</p>' +
+      '<p>화(火) &gt; 금(金)</p>' +
+      '<p>금(金) &gt; 목(木)</p>' +
+      "</div>" +
+      "</details>" +
       '<select class="field__control" name="element" required>' +
       ELEMENTS.map(function (element) {
         return '<option value="' + escapeHtml(element) + '">' + escapeHtml(element) + "</option>";

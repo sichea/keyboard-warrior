@@ -357,12 +357,26 @@
       wins: nextWins,
       losses: nextLosses
     };
+    var updatePayload = typeof nextDraws === "number" ? Object.assign({}, payload, { draws: nextDraws }) : payload;
     var result = await client
       .from("characters")
-      .update(typeof nextDraws === "number" ? Object.assign(payload, { draws: nextDraws }) : payload)
+      .update(updatePayload)
       .eq("id", characterId)
       .select()
       .single();
+
+    if (
+      result.error &&
+      typeof nextDraws === "number" &&
+      /draws|column/i.test(String(result.error.message || ""))
+    ) {
+      result = await client
+        .from("characters")
+        .update(payload)
+        .eq("id", characterId)
+        .select()
+        .single();
+    }
 
     if (result.error) {
       throw result.error;
